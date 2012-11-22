@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<models>
+	<model id="deptModel" class="com.javayjm.model.Dept" startRow="3">
+		<property name="deptName" column="1" excelTitleName="部门名称" dataType="String" maxLength="15" fixity="" codeTableName="" default=""/>
+		<property name="deptCode" column="2" excelTitleName="部门编号" dataType="String" maxLength="15" fixity="" codeTableName="" default=""/>
+		<property name="sendFileName" column="3" excelTitleName="发文简称" dataType="String" maxLength="15" fixity="" codeTableName="bgqx" default="C"/>
+		<property name="deptNo" column="4" excelTitleName="排序" dataType="String" maxLength="15" fixity="yes" codeTableName="" default="10"/>
+		<property name="date" column="5" excelTitleName="日期" dataType="Date" maxLength="15" fixity="" codeTableName="" default=""/>
+	</model>
+	
+	<!-- column :指excel没有表头名称时,可以对应所排的列号 -->
+</models>

@@ -1,0 +1,9 @@
+#JDK1.5及以上版本
+
+ junit.jar
+ log4j.jar
+ dom4j.jar
+ proxool.jar
+ hyjc.jar
+ commons-lang.jar
+ commons-configuration.jar

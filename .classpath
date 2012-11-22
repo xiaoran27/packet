@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" path="src"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry kind="lib" path="G:/cvs130/ascjar/junit.jar"/>
+	<classpathentry kind="lib" path="G:/cvs130/ascjar/log4j.jar"/>
+	<classpathentry kind="lib" path="G:/cvs130/ascjar/dom4j.jar"/>
+	<classpathentry kind="lib" path="G:/cvs130/ascjar/commons-configuration.jar" sourcepath="G:/commons-configuration-1.4-src"/>
+	<classpathentry kind="lib" path="G:/cvs130/ascjar/commons-lang.jar"/>
+	<classpathentry kind="lib" path="G:/cvs130/ascjar/commons-collections.jar"/>
+	<classpathentry kind="lib" path="G:/cvs130/ascjar/commons-logging.jar"/>
+	<classpathentry kind="lib" path="G:/cvs130/ascjar/jconn3.jar"/>
+	<classpathentry kind="lib" path="G:/cvs130/ascjar/jTDS3.jar"/>
+	<classpathentry kind="lib" path="G:/cvs130/ascjar/hsqldb.jar" sourcepath="G:/hsqldb/src"/>
+	<classpathentry kind="lib" path="G:/cvs130/ascjar/hyjc.jar"/>
+	<classpathentry kind="lib" path="G:/cvs130/ascjar/jxl.jar"/>
+	<classpathentry kind="lib" path="G:/cvs130/ascjar/mysql-connector-java.jar"/>
+	<classpathentry kind="lib" path="G:/cvs130/ascjar/proxool.jar"/>
+	<classpathentry kind="lib" path="G:/cvs130/ascjar/spring.jar" sourcepath="G:/spring-framework-2.5.2/src"/>
+	<classpathentry kind="lib" path="G:/cvs130/ascjar/geronimo-jms.jar"/>
+	<classpathentry kind="lib" path="G:/cvs130/ascjar/ant.jar"/>
+	<classpathentry kind="lib" path="G:/cvs130/ascjar/commons-email.jar"/>
+	<classpathentry kind="lib" path="G:/cvs130/ascjar/mail.jar"/>
+	<classpathentry kind="lib" path="G:/cvs130/ascjar/lombok.jar"/>
+	<classpathentry kind="lib" path="G:/cvs130/ascjar/jdic.jar"/>
+	<classpathentry kind="output" path="bin"/>
+</classpath>

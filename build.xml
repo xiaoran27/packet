@@ -1,0 +1,82 @@
+<?xml version="1.0"?>
+<!DOCTYPE project SYSTEM "ant.dtd">
+<?xml-stylesheet type="text/xsl" href="antprettybuild.xsl"?>
+
+<project name="packet" default="build" basedir=".">
+
+	<property file="version.properties" />
+	<property file="build.properties" />
+
+	<!-- ============================================================= -->
+	<!-- Prepare the build directory                                   -->
+	<!-- ============================================================= -->
+	<target name="prepare-build">
+		<mkdir dir="${build.dir}" />
+	</target>
+
+	<!-- ============================================================= -->
+	<!-- javac sources                                                 -->
+	<!-- ============================================================= -->
+	<target name="javac" depends="prepare-build">
+		<javac srcdir="${src.dir}" destdir="${build.dir}" debug="${build.debug}" optimize="${build.optimize}" verbose="${build.verbose}" deprecation="${build.deprication}">
+			<classpath>
+				<pathelement path="${build.dir}" />
+				<fileset dir="${basedir}">
+					<include name="${lib.dir}/*.jar" />
+				</fileset>
+			</classpath>
+		</javac>
+		<copy todir="${build.dir}">
+        <fileset dir="${src.dir}">
+        	<include name="**/*"/>
+        	<exclude name="**/*.java" />
+        </fileset>
+    </copy>
+	</target>
+	
+	<target name="build" depends="prepare-build, javac, jar" />
+	
+	<!-- ============================================================= -->
+	<!-- Dist                                                          -->
+	<!-- ============================================================= -->
+	<target name="dist" depends="build">
+		<mkdir dir="${dist.dir}" />
+
+		<jar jarfile="${dist.dir}/${dist.target}">
+			<fileset dir="${build.dir}" />
+		</jar>
+
+	</target>	
+	
+	<!-- ============================================================= -->
+	<!-- jar                                                      -->
+	<!-- ============================================================= -->
+	<target name="jar" depends="javac">
+		<jar jarfile="${basedir}/${lib.dir}/${build.jar}">
+			<fileset dir="${basedir}/${build.dir}">
+				<include name="**/*" />
+				<include name="*.class" />
+				<exclude name="log/**/*" />
+				<exclude name="*" />
+			</fileset>
+		</jar>
+	</target>
+	
+	<!-- ============================================================= -->
+	<!-- Javadocs                                                      -->
+	<!-- ============================================================= -->
+	<target name="javadocs" description="Create the javadocs">
+		<mkdir dir="${javadocs.dir}" />
+		<javadoc packagenames="" sourcepath="${src.dir}" destdir="${javadocs.dir}" author="true" version="true" use="true" public="true" windowtitle="${app.name}" doctitle="${app.name}" bottom="Copyright &#169; ${app.year} ${company.name}" />
+	</target>
+
+	<!-- ============================================================= -->
+	<!-- Clean                                                         -->
+	<!-- ============================================================= -->
+	<target name="clean">
+		<delete dir="${build.dir}" />
+		<delete dir="${dist.dir}" />
+	</target>
+
+
+</project>
