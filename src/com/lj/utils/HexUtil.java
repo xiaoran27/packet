@@ -40,6 +40,9 @@
 *-----------------------------------------------------------------------------*
 * V,xiaoran27,2009-5-11
 * M byteToHex(byte[] b, int size, boolean left)  //left or right size
+*-----------------------------------------------------------------------------*
+* V,xiaoran27,2013-7-22
+* + String byteToHexstr(byte[] b, boolean space)
 \*************************** END OF CHANGE REPORT HISTORY ********************/
 
 package com.lj.utils;
@@ -129,6 +132,32 @@ public class HexUtil {
 
     return toHex.toString();
   }
+  
+  /**
+   * 字节转16进制串
+   *
+   * @param b 字节数据
+   * @param space 是否e用space分开: true-是,false-否. 
+   *
+   * @return 16进制串
+   */
+  public static String byteToHexstr(byte[] b, boolean space) {
+	    StringBuilder toHex = new StringBuilder();
+
+	    for (int i = 0; (null != b) && (i < b.length); i++) {
+	      if (space) {
+	          toHex.append(' ');
+	      }
+
+	      char hi = Character.forDigit((b[i] >> 4) & 0x0F, 16);
+	      char lo = Character.forDigit(b[i] & 0x0F, 16);
+	      toHex.append(Character.toUpperCase(hi));
+	      toHex.append(Character.toUpperCase(lo));
+
+	    }
+
+	    return toHex.toString();
+	  }
 
   /**
    * @param args
@@ -136,6 +165,8 @@ public class HexUtil {
   public static void main(String[] args) {
       byte[] b = new String("1234567890abcdefg").getBytes();
 
+      b = new byte[]{0x0,0xa,(byte) 0xa0,0xf,(byte) 0xf0,(byte) 0xff,0x0,0xa,(byte) 0xa0,0xf,(byte) 0xf0,(byte) 0xff,0x0,0xa,(byte) 0xa0,0xf,(byte) 0xf0,(byte) 0xff};
+      
       System.out.println(HexUtil.byteToHex(b,false));
       System.out.println(HexUtil.byteToHex(b));
       System.out.println(HexUtil.byteToHex(b,10,true));
