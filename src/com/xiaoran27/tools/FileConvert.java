@@ -110,6 +110,10 @@ Len：4B离线数据长度：网络中实际数据帧的长度，一般不大于
 *-----------------------------------------------------------------------------*
 * V,xiaoran27,2013-7-19
 *   implements X0,X1
+*-----------------------------------------------------------------------------*
+* V,xiaoran27,2013-7-29
+*  + FILEHEAD_ZCXC_PACKET_HEAD_skip2MTP3DiffLen = (10+4+8+6)
+*  + int FILEHEAD_ZCXC_PACKET_HEAD_UNKNOWN_LENGTH = 0
 \*************************** END OF CHANGE REPORT HISTORY ********************/
 
 
@@ -138,6 +142,8 @@ import com.lj.utils.ISOUtil;
  */
 public class FileConvert {
 	
+	private static int BUFFER_SIZE = 8*1024;
+	
 	//SMSS
 	final static private int FILEHEAD_SMSS_LENGTH = 4*4;  //efl,wfl,dwl,spare 
 	private byte[] FILEHEAD_SMSS = new byte[FILEHEAD_SMSS_LENGTH];
@@ -150,12 +156,14 @@ public class FileConvert {
 	private byte[] FILEHEAD_SMSS_PACKET_HEAD = new byte[FILEHEAD_SMSS_PACKET_HEAD_LENGTH];
 	
 	//ZCXC
+	final static private int FILEHEAD_ZCXC_PACKET_HEAD_UNKNOWN_LENGTH = 0;
 	final static private byte[] FILEHEAD_ZCXC_FLAG = {0X5A, 0X43, 0X58, 0X43, 0X34, 0X2E, 0X33, 0X30};
-	final static private int FILEHEAD_ZCXC_LENGTH = 4*16+8;  //72
+	final static private int FILEHEAD_ZCXC_LENGTH = 4*16+4+(12-FILEHEAD_ZCXC_PACKET_HEAD_UNKNOWN_LENGTH);  
 	private byte[] FILEHEAD_ZCXC = new byte[FILEHEAD_ZCXC_LENGTH];
-	final static private int FILEHEAD_ZCXC_PACKET_HEAD_LENTH = 8;  
-	final static private byte[] FILEHEAD_ZCXC_PACKET_HEAD_FLAG = new byte[FILEHEAD_ZCXC_PACKET_HEAD_LENTH];//0,7字节可能不是0
-	private byte[] FILEHEAD_ZCXC_PACKET_HEAD = new byte[FILEHEAD_ZCXC_PACKET_HEAD_LENTH];
+	final static private int FILEHEAD_ZCXC_PACKET_HEAD_skip2MTP3DiffLen = (FILEHEAD_ZCXC_PACKET_HEAD_UNKNOWN_LENGTH+4+8+6);  //skip UNKNOWN,TIMESTAMP,PACKET_HEAD_FLAG,MTP2
+	final static private int FILEHEAD_ZCXC_PACKET_HEAD_LENGTH = 8;  
+	final static private byte[] FILEHEAD_ZCXC_PACKET_HEAD_FLAG = new byte[FILEHEAD_ZCXC_PACKET_HEAD_LENGTH];//0,7字节可能不是0
+	private byte[] FILEHEAD_ZCXC_PACKET_HEAD = new byte[FILEHEAD_ZCXC_PACKET_HEAD_LENGTH];
 	
 	//PCAP
 	final static private byte[] FILEHEAD_PCAP_FLAG = {(byte) 0XD4, (byte) 0XC3, (byte) 0XB2, (byte) 0XA1, 0X02, 0X00, 0X04, 0X00, 0X00, 0X00, 0X00, 0X00, 0X00, 0X00, 0X00, 0X00
@@ -208,14 +216,18 @@ public class FileConvert {
 		String src = System.getProperty("srcfile",args.length>1?args[1]:"ss7mtp3.msu");
 		String dst = System.getProperty("dstfile",args.length>2?args[2]:src+".pcap");
 		
-//		String[] srcfiles={"G://workspace//packet//data//ss7mtp.msu",
-//				"G://workspace//packet//data//zcxc.dat",
-//				"G://workspace//packet//data//smss.dat"};
-//		
-//		int fi = 1;
-//		ctype=fi+"1";
-//		src = srcfiles[fi-1];
-//		dst = srcfiles[fi-1]+".pcap";
+		String[] srcfiles={"G://workspace//packet//data//ss7mtp.msu",
+				"G://workspace//packet//data//zcxc.dat",
+				"G://workspace//packet//data//smss.dat"};
+		
+		int fi = 2;
+		ctype=fi+"0";
+		src = srcfiles[fi-1];
+		dst = srcfiles[fi-1]+".pcap";
+		
+//		ctype = "20";
+//		src = "G://workspace//packet//data//bjcdmazcxc//解失败文件//139PPS_0712_194958.dat";
+//		dst = src+".pcap";
 		
 		FileConvert fc = new FileConvert();
 		
@@ -558,24 +570,24 @@ public class FileConvert {
             
             
             int pos = 0;  
-            byte[] buf = new byte[1024];
+            byte[] buf = new byte[BUFFER_SIZE];
             int remainDataLen = 0;
             byte[] packet = null;
             int packetStartPos = pos;
             
             //read data (至少有一个包)
             remainDataLen = pos + fileInputStream.read(buf,pos,Math.min(fileInputStream.available(),buf.length-pos));
-            pos = pos + 8;//skip 8B before timestamp
-            packetStartPos = pos;
+            pos = pos + FILEHEAD_ZCXC_PACKET_HEAD_UNKNOWN_LENGTH;//skip UNKNOWN
+//            packetStartPos = pos;
             
     		//4b (timestamp), byte[] to int
-            int ms = bytes2int(buf,packetStartPos);
+            int ms = bytes2int(buf,packetStartPos+FILEHEAD_ZCXC_PACKET_HEAD_UNKNOWN_LENGTH);
             pos = pos + 4;
     		
             //packet head flag
             Arrays.fill(FILEHEAD_ZCXC_PACKET_HEAD, (byte)0);
-    		System.arraycopy(buf, pos, FILEHEAD_ZCXC_PACKET_HEAD, 0, FILEHEAD_ZCXC_PACKET_HEAD_LENTH);
-        	pos = pos + FILEHEAD_ZCXC_PACKET_HEAD_LENTH;
+    		System.arraycopy(buf, pos, FILEHEAD_ZCXC_PACKET_HEAD, 0, FILEHEAD_ZCXC_PACKET_HEAD_LENGTH);
+        	pos = pos + FILEHEAD_ZCXC_PACKET_HEAD_LENGTH;
         	FILEHEAD_ZCXC_PACKET_HEAD[0]=0;
         	FILEHEAD_ZCXC_PACKET_HEAD[7]=0;
             if (!Arrays.equals(FILEHEAD_ZCXC_PACKET_HEAD, FILEHEAD_ZCXC_PACKET_HEAD_FLAG)){
@@ -584,25 +596,32 @@ public class FileConvert {
             	return -101;
             }
             
-            final int skip2MTP3DiffLen = (4+8+6);  //skip TIMESTAMP,PACKET_HEAD_FLAG,MTP2
             while (true) {  
             	
             	while(pos < remainDataLen ){
             		
-            		//if (buf[pos]==FILEHEAD_ZCXC_PACKET_HEAD[1] && (pos > packetStartPos + (4+8+6) ) ){
-            		if (buf[pos]==MTP3FLAG && pos > packetStartPos + skip2MTP3DiffLen ){
+            		if (buf[pos]==MTP3FLAG && pos > packetStartPos + FILEHEAD_ZCXC_PACKET_HEAD_skip2MTP3DiffLen ){
             			//found next packet's pos
             			Arrays.fill(FILEHEAD_ZCXC_PACKET_HEAD, (byte)0);
             			System.arraycopy(buf, pos-6-8, FILEHEAD_ZCXC_PACKET_HEAD, 0, FILEHEAD_ZCXC_PACKET_HEAD_FLAG.length);
             			FILEHEAD_ZCXC_PACKET_HEAD[0]=0;
             			FILEHEAD_ZCXC_PACKET_HEAD[7]=0;
                         if (Arrays.equals(FILEHEAD_ZCXC_PACKET_HEAD, FILEHEAD_ZCXC_PACKET_HEAD_FLAG)){
-                        	pos = pos - skip2MTP3DiffLen; //前移到下个包时间的位置,要减一个包头的首字节
+                        	if ((pos - FILEHEAD_ZCXC_PACKET_HEAD_skip2MTP3DiffLen) < (packetStartPos + FILEHEAD_ZCXC_PACKET_HEAD_skip2MTP3DiffLen) ){  //异常数据包
+                        		System.out.println("=====Negative: pos="+pos+"; packetStartPos="+packetStartPos);
+                        		byte[] errBytes = new byte[pos - packetStartPos];
+                        		System.arraycopy(buf, packetStartPos, errBytes, 0, errBytes.length);
+                        		System.out.println(ISOUtil.hexdump(errBytes));
+                        		
+                        		pos ++;
+                        		continue;
+                        	}
+                        	pos = pos - FILEHEAD_ZCXC_PACKET_HEAD_skip2MTP3DiffLen; //前移到下个包时间的位置,要减一个包头的首字节
                         	
-                        	ms = bytes2int(buf,packetStartPos);
+                        	ms = bytes2int(buf,packetStartPos+FILEHEAD_ZCXC_PACKET_HEAD_UNKNOWN_LENGTH);
                         	
                         	//get a packet and write pcapfile
-                        	packetStartPos = packetStartPos + skip2MTP3DiffLen;  
+                        	packetStartPos = packetStartPos + FILEHEAD_ZCXC_PACKET_HEAD_skip2MTP3DiffLen;  
                         	packet = new byte[pos - packetStartPos];
                         	System.arraycopy(buf, packetStartPos, packet, 0, packet.length);
                         	if (packet[0]==MTP3FLAG){
@@ -619,7 +638,7 @@ public class FileConvert {
                         	}
                         	
                         	packetStartPos = pos;
-                        	pos = pos + skip2MTP3DiffLen;
+                        	pos = pos + FILEHEAD_ZCXC_PACKET_HEAD_skip2MTP3DiffLen;
                         }
             		}
             		
@@ -641,10 +660,10 @@ public class FileConvert {
                 	Arrays.fill(buf,packet.length,buf.length, (byte)0);
 	                remainDataLen = packet.length + fileInputStream.read(buf,packet.length,Math.min(fileInputStream.available(),buf.length-packet.length));
             	}else{
-            		ms = bytes2int(buf,packetStartPos);
+            		ms = bytes2int(buf,packetStartPos+10);
                 	//最后一个完整包
             		//get a packet and write pcapfile
-                	packetStartPos = packetStartPos + skip2MTP3DiffLen;  
+                	packetStartPos = packetStartPos + FILEHEAD_ZCXC_PACKET_HEAD_skip2MTP3DiffLen;  
                 	packet = new byte[remainDataLen - packetStartPos];
                 	System.arraycopy(buf, packetStartPos, packet, 0, packet.length);
                 	
@@ -699,24 +718,24 @@ public class FileConvert {
             
             
             int pos = 0;  
-            byte[] buf = new byte[1024];
+            byte[] buf = new byte[BUFFER_SIZE];
             int remainDataLen = 0;
             byte[] packet = null;
             int packetStartPos = pos;
             
             //read data (至少有一个包)
             remainDataLen = pos + fileInputStream.read(buf,pos,Math.min(fileInputStream.available(),buf.length-pos));
-            pos = pos + 8;//skip 8B before timestamp
-            packetStartPos = pos;
+            pos = pos + FILEHEAD_ZCXC_PACKET_HEAD_UNKNOWN_LENGTH;//skip UNKNOWN
+//            packetStartPos = pos;
             
     		//4b (timestamp), byte[] to int
-            int ms = bytes2int(buf,packetStartPos);
+            int ms = bytes2int(buf,packetStartPos+FILEHEAD_ZCXC_PACKET_HEAD_UNKNOWN_LENGTH);
             pos = pos + 4;
     		
             //packet head flag
             Arrays.fill(FILEHEAD_ZCXC_PACKET_HEAD, (byte)0);
-    		System.arraycopy(buf, pos, FILEHEAD_ZCXC_PACKET_HEAD, 0, FILEHEAD_ZCXC_PACKET_HEAD_LENTH);
-        	pos = pos + FILEHEAD_ZCXC_PACKET_HEAD_LENTH;
+    		System.arraycopy(buf, pos, FILEHEAD_ZCXC_PACKET_HEAD, 0, FILEHEAD_ZCXC_PACKET_HEAD_LENGTH);
+        	pos = pos + FILEHEAD_ZCXC_PACKET_HEAD_LENGTH;
         	FILEHEAD_ZCXC_PACKET_HEAD[0]=0;
         	FILEHEAD_ZCXC_PACKET_HEAD[7]=0;
             if (!Arrays.equals(FILEHEAD_ZCXC_PACKET_HEAD, FILEHEAD_ZCXC_PACKET_HEAD_FLAG)){
@@ -728,25 +747,33 @@ public class FileConvert {
             FileOutputStream fileOutputStream = new FileOutputStream(new File(pcapFile));  
             fileOutputStream.write(FILEHEAD_PCAP_FLAG);
             
-            final int skip2MTP3DiffLen = (4+8+6);  //skip TIMESTAMP,PACKET_HEAD_FLAG,MTP2
+           
             while (true) {  
             	
             	while(pos < remainDataLen ){
             		
-            		//if (buf[pos]==FILEHEAD_ZCXC_PACKET_HEAD[1] && (pos > packetStartPos + (4+8+6) ) ){
-            		if (buf[pos]==MTP3FLAG && pos > packetStartPos + skip2MTP3DiffLen ){
+            		if (buf[pos]==MTP3FLAG && pos > packetStartPos + FILEHEAD_ZCXC_PACKET_HEAD_skip2MTP3DiffLen ){
             			//found next packet's pos
             			Arrays.fill(FILEHEAD_ZCXC_PACKET_HEAD, (byte)0);
             			System.arraycopy(buf, pos-6-8, FILEHEAD_ZCXC_PACKET_HEAD, 0, FILEHEAD_ZCXC_PACKET_HEAD_FLAG.length);
             			FILEHEAD_ZCXC_PACKET_HEAD[0]=0;
             			FILEHEAD_ZCXC_PACKET_HEAD[7]=0;
                         if (Arrays.equals(FILEHEAD_ZCXC_PACKET_HEAD, FILEHEAD_ZCXC_PACKET_HEAD_FLAG)){
-                        	pos = pos - skip2MTP3DiffLen; //前移到下个包时间的位置,要减一个包头的首字节
+                        	if ((pos - FILEHEAD_ZCXC_PACKET_HEAD_skip2MTP3DiffLen) < (packetStartPos + FILEHEAD_ZCXC_PACKET_HEAD_skip2MTP3DiffLen) ){  //异常数据包
+                        		System.out.println("=====Negative: pos="+pos+"; packetStartPos="+packetStartPos);
+                        		byte[] errBytes = new byte[pos - packetStartPos];
+                        		System.arraycopy(buf, packetStartPos, errBytes, 0, errBytes.length);
+                        		System.out.println(ISOUtil.hexdump(errBytes));
+                        		
+                        		pos ++;
+                        		continue;
+                        	}
+                        	pos = pos - FILEHEAD_ZCXC_PACKET_HEAD_skip2MTP3DiffLen; //packet 开头  //前移到下个包时间的位置,要减一个包头的首字节
                         	
-                        	ms = bytes2int(buf,packetStartPos);
+                        	ms = bytes2int(buf,packetStartPos+FILEHEAD_ZCXC_PACKET_HEAD_UNKNOWN_LENGTH);
                         	
                         	//get a packet and write pcapfile
-                        	packetStartPos = packetStartPos + skip2MTP3DiffLen;  
+                        	packetStartPos = packetStartPos + FILEHEAD_ZCXC_PACKET_HEAD_skip2MTP3DiffLen;  
                         	packet = new byte[pos - packetStartPos];
                         	System.arraycopy(buf, packetStartPos, packet, 0, packet.length);
                         	if (packet[0]==MTP3FLAG){
@@ -763,7 +790,7 @@ public class FileConvert {
                         	}
                         	
                         	packetStartPos = pos;
-                        	pos = pos + skip2MTP3DiffLen;
+                        	pos = pos + FILEHEAD_ZCXC_PACKET_HEAD_skip2MTP3DiffLen;
                         }
             		}
             		
@@ -785,10 +812,10 @@ public class FileConvert {
                 	Arrays.fill(buf,packet.length,buf.length, (byte)0);
 	                remainDataLen = packet.length + fileInputStream.read(buf,packet.length,Math.min(fileInputStream.available(),buf.length-packet.length));
             	}else{
-            		ms = bytes2int(buf,packetStartPos);
+            		ms = bytes2int(buf,packetStartPos+FILEHEAD_ZCXC_PACKET_HEAD_UNKNOWN_LENGTH);
                 	//最后一个完整包
             		//get a packet and write pcapfile
-                	packetStartPos = packetStartPos + skip2MTP3DiffLen;  
+                	packetStartPos = packetStartPos + FILEHEAD_ZCXC_PACKET_HEAD_skip2MTP3DiffLen;  
                 	packet = new byte[remainDataLen - packetStartPos];
                 	System.arraycopy(buf, packetStartPos, packet, 0, packet.length);
                 	
