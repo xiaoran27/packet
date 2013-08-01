@@ -114,6 +114,9 @@ Len：4B离线数据长度：网络中实际数据帧的长度，一般不大于
 * V,xiaoran27,2013-7-29
 *  + FILEHEAD_ZCXC_PACKET_HEAD_skip2MTP3DiffLen = (10+4+8+6)
 *  + int FILEHEAD_ZCXC_PACKET_HEAD_UNKNOWN_LENGTH = 0
+*-----------------------------------------------------------------------------*
+* V,xiaoran27,2013-8-1
+*  + int FILEHEAD_ZCXC_PACKET_HEAD_UNKNOWN_LENGTH = 10 //找双喜确认不是msu的数据
 \*************************** END OF CHANGE REPORT HISTORY ********************/
 
 
@@ -142,45 +145,47 @@ import com.lj.utils.ISOUtil;
  */
 public class FileConvert {
 	
+	final static public int MSU_MAX_LENGTH = 273;
+	
 	private static int BUFFER_SIZE = 8*1024;
 	
 	//SMSS
-	final static private int FILEHEAD_SMSS_LENGTH = 4*4;  //efl,wfl,dwl,spare 
+	final static public int FILEHEAD_SMSS_LENGTH = 4*4;  //efl,wfl,dwl,spare 
 	private byte[] FILEHEAD_SMSS = new byte[FILEHEAD_SMSS_LENGTH];
-	final static private int FILEHEAD_SMSS_MSG_LENGTH = 4*5;  //header,ipAddr,type,len,reserved
+	final static public int FILEHEAD_SMSS_MSG_LENGTH = 4*5;  //header,ipAddr,type,len,reserved
 	private byte[] FILEHEAD_SMSS_MSG = new byte[FILEHEAD_SMSS_MSG_LENGTH];
 	final static private byte[] FILEHEAD_SMSS_MSG_FLAG0 = {0X1A,0X2B,0X3C,0X4D};
 	final static private byte[] FILEHEAD_SMSS_MSG_FLAG1 = {0X4D,0X3C,0X2B,0X1A};
 	private byte[] FILEHEAD_SMSS_MSG_FLAG = new byte[4];
-	final static private int FILEHEAD_SMSS_PACKET_HEAD_LENGTH = 4+1*4+4;  //code + linkId,portType,reserved,repeatNum + msgLength
+	final static public int FILEHEAD_SMSS_PACKET_HEAD_LENGTH = 4+1*4+4;  //code + linkId,portType,reserved,repeatNum + msgLength
 	private byte[] FILEHEAD_SMSS_PACKET_HEAD = new byte[FILEHEAD_SMSS_PACKET_HEAD_LENGTH];
 	
 	//ZCXC
-	final static private int FILEHEAD_ZCXC_PACKET_HEAD_UNKNOWN_LENGTH = 0;
+	final static public int FILEHEAD_ZCXC_PACKET_HEAD_UNKNOWN_LENGTH = 10;  //unkonwn head's length of packet //找双喜确认不是msu的数据
 	final static private byte[] FILEHEAD_ZCXC_FLAG = {0X5A, 0X43, 0X58, 0X43, 0X34, 0X2E, 0X33, 0X30};
-	final static private int FILEHEAD_ZCXC_LENGTH = 4*16+4+(12-FILEHEAD_ZCXC_PACKET_HEAD_UNKNOWN_LENGTH);  
+	final static public int FILEHEAD_ZCXC_LENGTH = 4*16+4+(12-FILEHEAD_ZCXC_PACKET_HEAD_UNKNOWN_LENGTH);  
 	private byte[] FILEHEAD_ZCXC = new byte[FILEHEAD_ZCXC_LENGTH];
-	final static private int FILEHEAD_ZCXC_PACKET_HEAD_skip2MTP3DiffLen = (FILEHEAD_ZCXC_PACKET_HEAD_UNKNOWN_LENGTH+4+8+6);  //skip UNKNOWN,TIMESTAMP,PACKET_HEAD_FLAG,MTP2
-	final static private int FILEHEAD_ZCXC_PACKET_HEAD_LENGTH = 8;  
+	final static public int FILEHEAD_ZCXC_PACKET_HEAD_skip2MTP3DiffLen = (FILEHEAD_ZCXC_PACKET_HEAD_UNKNOWN_LENGTH+4+8+6);  //skip UNKNOWN,TIMESTAMP,PACKET_HEAD_FLAG,MTP2
+	final static public int FILEHEAD_ZCXC_PACKET_HEAD_LENGTH = 8;  
 	final static private byte[] FILEHEAD_ZCXC_PACKET_HEAD_FLAG = new byte[FILEHEAD_ZCXC_PACKET_HEAD_LENGTH];//0,7字节可能不是0
 	private byte[] FILEHEAD_ZCXC_PACKET_HEAD = new byte[FILEHEAD_ZCXC_PACKET_HEAD_LENGTH];
 	
 	//PCAP
 	final static private byte[] FILEHEAD_PCAP_FLAG = {(byte) 0XD4, (byte) 0XC3, (byte) 0XB2, (byte) 0XA1, 0X02, 0X00, 0X04, 0X00, 0X00, 0X00, 0X00, 0X00, 0X00, 0X00, 0X00, 0X00
 		, 0X00, (byte) 0X90, 0X01, 0X00, (byte) 0X8D, 0X00, 0X00, 0X00};
-	final static private int FILEHEAD_PCAP_LENGTH = 4+2*2+4+4+4+4; //Magic + Major,Minor + ThisZone + SigFigs + SnapLen + LinkType
+	final static public int FILEHEAD_PCAP_LENGTH = 4+2*2+4+4+4+4; //Magic + Major,Minor + ThisZone + SigFigs + SnapLen + LinkType
 	final static private byte[] FILEHEAD_PCAP = FILEHEAD_PCAP_FLAG;
-	final static private int FILEHEAD_PCAP_PACKET_HEAD_LENGTH = 4*4; //timestampSec,timestampMs,caplen,len
+	final static public int FILEHEAD_PCAP_PACKET_HEAD_LENGTH = 4*4; //timestampSec,timestampMs,caplen,len
 	final static private byte[] FILEHEAD_PCAP_PACKET_HEAD = new byte[FILEHEAD_PCAP_PACKET_HEAD_LENGTH];
 
 	//MTP2 FLAG
-	final private byte MTP3FLAG = (byte)0x83;
+	final public byte MTP3FLAG = (byte)0x83;
 	
 	//TYPE
-	final static private int TYPE_PCAP = 0;
-	final static private int TYPE_MSU = 1;
-	final static private int TYPE_DAT_ZCXC = 2;
-	final static private int TYPE_DAT_SMSS = 3;
+	final static public int TYPE_PCAP = 0;
+	final static public int TYPE_MSU = 1;
+	final static public int TYPE_DAT_ZCXC = 2;
+	final static public int TYPE_DAT_SMSS = 3;
 	
 	final static Map<Integer,String> ctypeMap = new HashMap<Integer,String>();
 	static {
@@ -214,20 +219,21 @@ public class FileConvert {
 		
 		String ctype = System.getProperty("ctype",args.length>0?args[0]:"10");
 		String src = System.getProperty("srcfile",args.length>1?args[1]:"ss7mtp3.msu");
-		String dst = System.getProperty("dstfile",args.length>2?args[2]:src+".pcap");
+		String dst = System.getProperty("dstfile",args.length>2?args[2]:src+(ctype.charAt(1)=='1'?".msu":".pcap"));
 		
-		String[] srcfiles={"G://workspace//packet//data//ss7mtp.msu",
-				"G://workspace//packet//data//zcxc.dat",
-				"G://workspace//packet//data//smss.dat"};
+//		String[] srcfiles={"G://workspace//packet//data//ss7mtp.msu",
+//				"G://workspace//packet//data//zcxc.dat",
+//				"G://workspace//packet//data//smss.dat"};
+//		
+//		int fi = 2;
+////		ctype=fi+"0";
+//		ctype=fi+"1";
+//		src = srcfiles[fi-1];
+//		dst = srcfiles[fi-1]+(ctype.charAt(1)=='1'?".msu":".pcap");
 		
-		int fi = 2;
-		ctype=fi+"0";
-		src = srcfiles[fi-1];
-		dst = srcfiles[fi-1]+".pcap";
-		
-//		ctype = "20";
-//		src = "G://workspace//packet//data//bjcdmazcxc//解失败文件//139PPS_0712_194958.dat";
-//		dst = src+".pcap";
+		ctype = "21";
+		src = "G://workspace//packet//data//bjcdmazcxc//解失败文件//139PPS_0712_194958.dat";
+		dst = src+(ctype.charAt(1)=='1'?".msu":".pcap");
 		
 		FileConvert fc = new FileConvert();
 		
