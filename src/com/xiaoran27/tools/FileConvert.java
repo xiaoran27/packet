@@ -117,6 +117,10 @@ Len：4B离线数据长度：网络中实际数据帧的长度，一般不大于
 *-----------------------------------------------------------------------------*
 * V,xiaoran27,2013-8-1
 *  + int FILEHEAD_ZCXC_PACKET_HEAD_UNKNOWN_LENGTH = 10 //找双喜确认不是msu的数据
+*-----------------------------------------------------------------------------*
+* V,xiaoran27,2013-8-2
+*  + //超273的MSU
+*  + convert(...)  //支持目录
 \*************************** END OF CHANGE REPORT HISTORY ********************/
 
 
@@ -169,6 +173,10 @@ public class FileConvert {
 	final static public int FILEHEAD_ZCXC_PACKET_HEAD_LENGTH = 8;  
 	final static private byte[] FILEHEAD_ZCXC_PACKET_HEAD_FLAG = new byte[FILEHEAD_ZCXC_PACKET_HEAD_LENGTH];//0,7字节可能不是0
 	private byte[] FILEHEAD_ZCXC_PACKET_HEAD = new byte[FILEHEAD_ZCXC_PACKET_HEAD_LENGTH];
+	//special
+	final static public byte FILEHEAD_ZCXC_PACKET_10A5_FLAG = (byte) 0XA5;
+	final static public int FILEHEAD_ZCXC_PACKET_10A5_LENGTH = 10; 
+	private byte[] FILEHEAD_ZCXC_PACKET_10A5 = {(byte) 0XA5,(byte) 0XA5,(byte) 0XA5,(byte) 0XA5,(byte) 0XA5,(byte) 0XA5,(byte) 0XA5,(byte) 0XA5,(byte) 0XA5,(byte) 0XA5};
 	
 	//PCAP
 	final static private byte[] FILEHEAD_PCAP_FLAG = {(byte) 0XD4, (byte) 0XC3, (byte) 0XB2, (byte) 0XA1, 0X02, 0X00, 0X04, 0X00, 0X00, 0X00, 0X00, 0X00, 0X00, 0X00, 0X00, 0X00
@@ -214,12 +222,12 @@ public class FileConvert {
 	 * @param args
 	 */
 	public static void main(String[] args) {
-		long old = System.currentTimeMillis();
+		
 		usage();
 		
 		String ctype = System.getProperty("ctype",args.length>0?args[0]:"10");
 		String src = System.getProperty("srcfile",args.length>1?args[1]:"ss7mtp3.msu");
-		String dst = System.getProperty("dstfile",args.length>2?args[2]:src+(ctype.charAt(1)=='1'?".msu":".pcap"));
+		String dst = System.getProperty("dstfile",args.length>2?args[2]:null);
 		
 //		String[] srcfiles={"G://workspace//packet//data//ss7mtp.msu",
 //				"G://workspace//packet//data//zcxc.dat",
@@ -231,31 +239,12 @@ public class FileConvert {
 //		src = srcfiles[fi-1];
 //		dst = srcfiles[fi-1]+(ctype.charAt(1)=='1'?".msu":".pcap");
 		
-		ctype = "21";
-		src = "G://workspace//packet//data//bjcdmazcxc//解失败文件//139PPS_0712_194958.dat";
-		dst = src+(ctype.charAt(1)=='1'?".msu":".pcap");
+		ctype = "20";
+		src = "G://workspace//packet//data//bjcdmazcxc//解失败文件";
 		
 		FileConvert fc = new FileConvert();
+		fc.convert(ctype, src, dst);
 		
-		int count = -1;
-		int type = Integer.parseInt(ctype);
-		if (10==type){
-			count = fc.msu2pcap(src,dst);
-		}else if (20==type){
-			count = fc.zcxcDat2pcapDirect(src,dst);
-		}else if (30==type){
-			count = fc.smssDat2pcapDirect(src,dst);
-		}else if (21==type){
-			count = fc.zcxcDat2msu(src,dst);
-		}else if (31==type){
-			count = fc.smssDat2msu(src,dst);
-		}else{
-			System.out.println("UNSUPPORT "+ctypeMap.get(type));
-		}
-		
-		if (count != -1){
-			System.out.println(count+" lines is converted from "+src+" to "+dst+", established MS = "+(System.currentTimeMillis() - old));
-		}
 		
 	}
 	
@@ -267,18 +256,90 @@ public class FileConvert {
 		System.out.println();
 	}
 	
+	/**
+	 * SS7采集文件格式互转.
+	 * 
+	 * @param ctype - 转换格式
+	 * @param src - 源文件
+	 * @param dst - 目标文件
+	 * 
+	 * @return 转换的包数
+	 */
+	public int convert(final String ctype , final String src, final String dst) {
+		long _old = System.currentTimeMillis();
+		
+		String _src=src, _dst=dst;
+		File file = new File(_src);
+		String filepath = file.getParent();
+		String[] files = {_src};
+		if (file.isDirectory()){
+			filepath = file.getPath();
+			files = file.list();
+		}
+		
+		int _count = 0;
+		int type = Integer.parseInt(ctype);
+		for (String _file : files){
+			_src = filepath+File.separator+_file;
+			if (file.isFile() && null!=dst){
+				_dst=dst;
+			}else{
+				_dst = _src;
+			}
+			
+			switch ( ctype.charAt(1)){
+			case '0':
+				_dst = _dst+".pcap";
+				break;
+			case '1':
+				_dst = _dst+".msu";
+				break;
+			case '2':
+				_dst = _dst+".dat";  //zcxc
+				break;
+			case '3':
+				_dst = _dst+".dat";  //smss
+				break;
+			}
+			
+			int count = 0;
+			long old = System.currentTimeMillis();
+			if (10==type){
+				count = msu2pcap(_src,_dst);
+			}else if (20==type){
+				count = zcxcDat2pcapDirect(_src,_dst);
+			}else if (30==type){
+				count = smssDat2pcapDirect(_src,_dst);
+			}else if (21==type){
+				count = zcxcDat2msu(_src,_dst);
+			}else if (31==type){
+				count = smssDat2msu(_src,_dst);
+			}else{
+				System.out.println("UNSUPPORT "+ctypeMap.get(type));
+			}
+			
+			if (count != 0){
+				System.out.println(count+" lines is converted from "+_src+" to "+_dst+", established MS = "+(System.currentTimeMillis() - old));
+			}
+			_count = _count + count;
+		}
+		
+		System.out.println(_count+" lines is converted from "+Arrays.toString(files)+"; established MS = "+(System.currentTimeMillis() - _old));
+		
+		return _count;
+	}
 
 	/**
 	 * SMSS数据文件转为pcap文件.
 	 * 
-	 * @param smssDatFile - SMSS数据文件
-	 * @param pcapFile - pcap文件
+	 * @param src - SMSS数据文件
+	 * @param dst - pcap文件
 	 * @return 转换的包数
 	 */
-	public int smssDat2pcap(final String smssDatFile, final String pcapFile) {
-		int count = smssDat2msu(smssDatFile,smssDatFile+".msu");
+	public int smssDat2pcap(final String src, final String dst) {
+		int count = smssDat2msu(src,src+".msu");
 		if (count>0){
-			count = msu2pcap(smssDatFile+".msu", pcapFile);
+			count = msu2pcap(src+".msu", dst);
 		}
 		return count;
 	}
@@ -286,19 +347,19 @@ public class FileConvert {
 	/**
 	 * SMSS数据文件转为msu文件.
 	 * 
-	 * @param smssDatFile - SMSS数据文件
-	 * @param msuFile - msu文件
+	 * @param src - SMSS数据文件
+	 * @param dst - msu文件
 	 * @return 转换的包数
 	 */
-	public int smssDat2msu(final String smssDatFile, final String msuFile) {
+	public int smssDat2msu(final String src, final String dst) {
 		int count = 0;
 		
 		long old = System.currentTimeMillis();
-		System.out.println(count+" smssDat2msu - established MS="+(System.currentTimeMillis()-old)+"; START AT "+new Date());
+		System.out.println(count+" file="+src+" smssDat2msu - established MS="+(System.currentTimeMillis()-old)+"; START AT "+new Date());
 		try {  
             // 源文件  
-            FileInputStream fileInputStream = new FileInputStream(new File(smssDatFile));  
-            BufferedWriter bw = new BufferedWriter(new FileWriter(new File(msuFile)));
+            FileInputStream fileInputStream = new FileInputStream(new File(src));  
+            BufferedWriter bw = new BufferedWriter(new FileWriter(new File(dst)));
   
             //read head 
             Arrays.fill(FILEHEAD_SMSS, (byte)0);
@@ -315,7 +376,7 @@ public class FileConvert {
 	            		|| Arrays.equals(FILEHEAD_SMSS_MSG_FLAG, FILEHEAD_SMSS_MSG_FLAG1)){
 	            }else{
 	            	fileInputStream.close(); 
-	            	System.out.println(smssDatFile+" isn't SMSS format msg.(ERR:-100)");  
+	            	System.out.println(src+" isn't SMSS format msg.(ERR:-100)");  
 	            	return -100;
 	            }
 	            int msglen = bigbytes2int(FILEHEAD_SMSS_MSG,12);
@@ -349,6 +410,12 @@ public class FileConvert {
             		bw.write("\r\n");
             		count ++;
             		packetStartPos = pos;
+            		
+            		//超273的MSU
+            		if (packet.length > MSU_MAX_LENGTH){
+            			System.out.println(count+" file="+src+" IGNORE MSU because too long ="+packet.length);
+    		    		System.out.println("MSU start with "+HexFormat.bytes2str(packet, 0, 10, true));
+            		}
             		            		
             	}  while(pos < remainDataLen - FILEHEAD_SMSS_PACKET_HEAD_LENGTH );
             	
@@ -361,7 +428,7 @@ public class FileConvert {
         } catch (Exception e) {  
             e.printStackTrace();  
         }  
-		System.out.println(count+" smssDat2msu - established MS="+(System.currentTimeMillis()-old)+"; FINISHED AT "+new Date()); 
+		System.out.println(count+" file="+src+" - established MS="+(System.currentTimeMillis()-old)+"; FINISHED AT "+new Date()); 
 		
 		return  count;
 	}
@@ -370,19 +437,19 @@ public class FileConvert {
 	/**
 	 * SMSS数据文件直接转为pcap文件.
 	 * 
-	 * @param smssDatFile - SMSS数据文件
-	 * @param pcapFile - pcap文件
+	 * @param src - SMSS数据文件
+	 * @param dst - pcap文件
 	 * @return 转换的包数
 	 */
-	public int smssDat2pcapDirect(final String smssDatFile, final String pcapFile) {
+	public int smssDat2pcapDirect(final String src, final String dst) {
 		int count = 0;
 		
 		long old = System.currentTimeMillis();
-		System.out.println(count+" smssDat2msu - established MS="+(System.currentTimeMillis()-old)+"; START AT "+new Date());
+		System.out.println(count+" file="+src+" - established MS="+(System.currentTimeMillis()-old)+"; START AT "+new Date());
 		try {  
             // 源文件  
-            FileInputStream fileInputStream = new FileInputStream(new File(smssDatFile));  
-            FileOutputStream fileOutputStream = new FileOutputStream(new File(pcapFile));  
+            FileInputStream fileInputStream = new FileInputStream(new File(src));  
+            FileOutputStream fileOutputStream = new FileOutputStream(new File(dst));  
             fileOutputStream.write(FILEHEAD_PCAP_FLAG);
   
             //read head 
@@ -400,7 +467,7 @@ public class FileConvert {
 	            		|| Arrays.equals(FILEHEAD_SMSS_MSG_FLAG, FILEHEAD_SMSS_MSG_FLAG1)){
 	            }else{
 	            	fileInputStream.close(); 
-	            	System.out.println(smssDatFile+" isn't SMSS format msg.(ERR:-100)");  
+	            	System.out.println(src+" isn't SMSS format msg.(ERR:-100)");  
 	            	return -100;
 	            }
 	            int msglen = bigbytes2int(FILEHEAD_SMSS_MSG,12);
@@ -434,6 +501,12 @@ public class FileConvert {
                 	fileOutputStream.write(pcapPacket);
             		count ++;
             		packetStartPos = pos;
+            		
+            		//超273的MSU
+            		if (packet.length > MSU_MAX_LENGTH){
+            			System.out.println(count+" file="+src+" IGNORE MSU because too long ="+packet.length);
+    		    		System.out.println("MSU start with "+HexFormat.bytes2str(packet, 0, 10, true));
+            		}
             		            		
             	}  while(pos < remainDataLen - FILEHEAD_SMSS_PACKET_HEAD_LENGTH );
             	
@@ -446,7 +519,7 @@ public class FileConvert {
         } catch (Exception e) {  
             e.printStackTrace();  
         }  
-		System.out.println(count+" smssDat2msu - established MS="+(System.currentTimeMillis()-old)+"; FINISHED AT "+new Date()); 
+		System.out.println(count+" file="+src+" - established MS="+(System.currentTimeMillis()-old)+"; FINISHED AT "+new Date()); 
 		
 		return  count;
 	}
@@ -456,19 +529,19 @@ public class FileConvert {
 	/**
 	 * hex的MSU数据文件(每行一个MTP3MSU<0x83开始>)转为pcap文件.
 	 * 
-	 * @param msuFile - hex的MSU文件(每行一个MTP3MSU<0x83开始>)
-	 * @param pcapFile - pcap文件
+	 * @param src - hex的MSU文件(每行一个MTP3MSU<0x83开始>)
+	 * @param dst - pcap文件
 	 * @return 转换的包数
 	 */
-	public int msu2pcap(final String msuFile, final String pcapFile) {
+	public int msu2pcap(final String src, final String dst) {
 		int count = 0;
 		
 		long old = System.currentTimeMillis();
-		System.out.println(count+" msu2pcap - established MS="+(System.currentTimeMillis()-old)+"; START AT "+new Date());
+		System.out.println(count+" file="+src+" - established MS="+(System.currentTimeMillis()-old)+"; START AT "+new Date());
 		try {  
             // 源文件  
-			BufferedReader br = new BufferedReader(new FileReader(new File(msuFile)));
-            FileOutputStream fileOutputStream = new FileOutputStream(new File(pcapFile));  
+			BufferedReader br = new BufferedReader(new FileReader(new File(src)));
+            FileOutputStream fileOutputStream = new FileOutputStream(new File(dst));  
             fileOutputStream.write(FILEHEAD_PCAP_FLAG);
 			
 		    String line = br.readLine();
@@ -482,6 +555,12 @@ public class FileConvert {
 		    	byte[] pcapPacket = mtp3msu2pcap(packet, count);
             	fileOutputStream.write(pcapPacket);
             	count ++;
+            	
+            	//超273的MSU
+        		if (packet.length > MSU_MAX_LENGTH){
+        			System.out.println(count+" file="+src+" IGNORE MSU because too long ="+packet.length);
+		    		System.out.println("MSU start with "+HexFormat.bytes2str(packet, 0, 10, true));
+        		}
 		    	
 		    	line = br.readLine();
 		    }
@@ -493,7 +572,7 @@ public class FileConvert {
         } catch (Exception e) {  
             e.printStackTrace();  
         }  
-		System.out.println(count+" msu2pcap - established MS="+(System.currentTimeMillis()-old)+"; FINISHED AT "+new Date()); 
+		System.out.println(count+" file="+src+" - established MS="+(System.currentTimeMillis()-old)+"; FINISHED AT "+new Date()); 
 		
 		return  count;
 	}
@@ -548,19 +627,19 @@ public class FileConvert {
 	/**
 	 * 中创仪表数据文件转为msu文件.
 	 * 
-	 * @param zcxcDatFile - 中创仪表数据文件
-	 * @param msuFile - pcap文件
+	 * @param src - 中创仪表数据文件
+	 * @param dst - pcap文件
 	 * @return 转换的包数
 	 */
-	public int zcxcDat2msu(final String zcxcDatFile, final String msuFile) {
+	public int zcxcDat2msu(final String src, final String dst) {
 		int count = 0;
 		
 		long old = System.currentTimeMillis();
-		System.out.println(count+" zcxcDat2msu - established MS="+(System.currentTimeMillis()-old)+"; START AT "+new Date());
+		System.out.println(count+" file="+src+" - established MS="+(System.currentTimeMillis()-old)+"; START AT "+new Date());
 		try {  
             // 源文件  
-            FileInputStream fileInputStream = new FileInputStream(new File(zcxcDatFile));  
-            BufferedWriter bw = new BufferedWriter(new FileWriter(new File(msuFile)));
+            FileInputStream fileInputStream = new FileInputStream(new File(src));  
+            BufferedWriter bw = new BufferedWriter(new FileWriter(new File(dst)));
   
             //read head and CHECK HEAD FLAG
             Arrays.fill(FILEHEAD_ZCXC, (byte)0);
@@ -570,7 +649,7 @@ public class FileConvert {
             System.arraycopy(FILEHEAD_ZCXC, 0, _FILEHEAD_ZCXC_FLAG, 0, FILEHEAD_ZCXC_FLAG.length);
             if (!Arrays.equals(_FILEHEAD_ZCXC_FLAG, FILEHEAD_ZCXC_FLAG)){
             	fileInputStream.close(); 
-            	System.out.println(zcxcDatFile+" isn't ZCXC format file.(ERR:-100)");  
+            	System.out.println(src+" isn't ZCXC format file.(ERR:-100)");  
             	return -100;
             }
             
@@ -598,7 +677,7 @@ public class FileConvert {
         	FILEHEAD_ZCXC_PACKET_HEAD[7]=0;
             if (!Arrays.equals(FILEHEAD_ZCXC_PACKET_HEAD, FILEHEAD_ZCXC_PACKET_HEAD_FLAG)){
             	fileInputStream.close(); 
-            	System.out.println(zcxcDatFile+" NOT FOUND PACKET HEAD FLAG[x,0,0,0,0,0,0,x].(ERR:-101)");  
+            	System.out.println(src+" NOT FOUND PACKET HEAD FLAG[x,0,0,0,0,0,0,x].(ERR:-101)");  
             	return -101;
             }
             
@@ -614,7 +693,7 @@ public class FileConvert {
             			FILEHEAD_ZCXC_PACKET_HEAD[7]=0;
                         if (Arrays.equals(FILEHEAD_ZCXC_PACKET_HEAD, FILEHEAD_ZCXC_PACKET_HEAD_FLAG)){
                         	if ((pos - FILEHEAD_ZCXC_PACKET_HEAD_skip2MTP3DiffLen) < (packetStartPos + FILEHEAD_ZCXC_PACKET_HEAD_skip2MTP3DiffLen) ){  //异常数据包
-                        		System.out.println("=====Negative: pos="+pos+"; packetStartPos="+packetStartPos);
+                        		System.out.println(src+"=====Negative: pos="+pos+"; packetStartPos="+packetStartPos);
                         		byte[] errBytes = new byte[pos - packetStartPos];
                         		System.arraycopy(buf, packetStartPos, errBytes, 0, errBytes.length);
                         		System.out.println(ISOUtil.hexdump(errBytes));
@@ -635,13 +714,19 @@ public class FileConvert {
                         		bw.write("\r\n");
                             	count ++;
                         	}else{
-                        		System.out.println(" NOT MTP3 PACKET.(ERR:-102)");
+                        		System.out.println(src+" NOT MTP3 PACKET.(ERR:-102)");
                         		System.out.println(ISOUtil.hexdump(packet));
                         		
                         		fileInputStream.close();  
                                 bw.close(); 
                             	return -102;
                         	}
+                        	
+                        	//超273的MSU
+                    		if (packet.length > MSU_MAX_LENGTH){
+                    			System.out.println(count+" file="+src+" IGNORE MSU because too long ="+packet.length);
+            		    		System.out.println("MSU start with "+HexFormat.bytes2str(packet, 0, 10, true));
+                    		}
                         	
                         	packetStartPos = pos;
                         	pos = pos + FILEHEAD_ZCXC_PACKET_HEAD_skip2MTP3DiffLen;
@@ -653,7 +738,7 @@ public class FileConvert {
             	}  //end while(pos < remainDataLen )
             	
             	if (fileInputStream.available()>0){
-            		System.out.println(count+" zcxcDat2msu - established MS="+(System.currentTimeMillis()-old)+"; converting AT "+new Date()); 
+            		System.out.println(count+" file="+src+" - established MS="+(System.currentTimeMillis()-old)+"; converting AT "+new Date()); 
             		
             		//不是一个完整包
                 	packet = new byte[remainDataLen - packetStartPos];
@@ -677,6 +762,12 @@ public class FileConvert {
             		bw.write("\r\n");
                 	count ++;
                 	
+                	//超273的MSU
+            		if (packet.length > MSU_MAX_LENGTH){
+            			System.out.println(count+" file="+src+" IGNORE MSU because too long ="+packet.length);
+    		    		System.out.println("MSU start with "+HexFormat.bytes2str(packet, 0, 10, true));
+            		}
+                	
                 	break;
             	}
                 
@@ -689,7 +780,7 @@ public class FileConvert {
         } catch (Exception e) {  
             e.printStackTrace();  
         } 
-		System.out.println(count+" zcxcDat2msu - established MS="+(System.currentTimeMillis()-old)+"; FINISHED AT "+new Date()); 
+		System.out.println(count+" file="+src+" - established MS="+(System.currentTimeMillis()-old)+"; FINISHED AT "+new Date()); 
 		
 		return  count;
 	}
@@ -697,18 +788,18 @@ public class FileConvert {
 	/**
 	 * 中创仪表数据文件直接转为pcap文件.
 	 * 
-	 * @param zcxcDatFile - 中创仪表数据文件
-	 * @param pcapFile - pcap文件
+	 * @param src - 中创仪表数据文件
+	 * @param dst - pcap文件
 	 * @return 转换的包数
 	 */
-	public int zcxcDat2pcapDirect(final String zcxcDatFile, final String pcapFile) {
+	public int zcxcDat2pcapDirect(final String src, final String dst) {
 		int count = 0;
 		
 		long old = System.currentTimeMillis();
-		System.out.println(count+" established MS="+(System.currentTimeMillis()-old)+"; START AT "+new Date());
+		System.out.println(count+" file="+src+" established MS="+(System.currentTimeMillis()-old)+"; START AT "+new Date());
 		try {  
             // 源文件  
-            FileInputStream fileInputStream = new FileInputStream(new File(zcxcDatFile));  
+            FileInputStream fileInputStream = new FileInputStream(new File(src));  
   
             //read head and CHECK HEAD FLAG
             Arrays.fill(FILEHEAD_ZCXC, (byte)0);
@@ -718,7 +809,7 @@ public class FileConvert {
             System.arraycopy(FILEHEAD_ZCXC, 0, _FILEHEAD_ZCXC_FLAG, 0, FILEHEAD_ZCXC_FLAG.length);
             if (!Arrays.equals(_FILEHEAD_ZCXC_FLAG, FILEHEAD_ZCXC_FLAG)){
             	fileInputStream.close(); 
-            	System.out.println(zcxcDatFile+" isn't ZCXC format file.(ERR:-100)");  
+            	System.out.println(src+" isn't ZCXC format file.(ERR:-100)");  
             	return -100;
             }
             
@@ -746,11 +837,11 @@ public class FileConvert {
         	FILEHEAD_ZCXC_PACKET_HEAD[7]=0;
             if (!Arrays.equals(FILEHEAD_ZCXC_PACKET_HEAD, FILEHEAD_ZCXC_PACKET_HEAD_FLAG)){
             	fileInputStream.close(); 
-            	System.out.println(zcxcDatFile+" NOT FOUND PACKET HEAD FLAG[x,0,0,0,0,0,0,x].(ERR:-101)");  
+            	System.out.println(src+" NOT FOUND PACKET HEAD FLAG[x,0,0,0,0,0,0,x].(ERR:-101)");  
             	return -101;
             }
             
-            FileOutputStream fileOutputStream = new FileOutputStream(new File(pcapFile));  
+            FileOutputStream fileOutputStream = new FileOutputStream(new File(dst));  
             fileOutputStream.write(FILEHEAD_PCAP_FLAG);
             
            
@@ -766,7 +857,7 @@ public class FileConvert {
             			FILEHEAD_ZCXC_PACKET_HEAD[7]=0;
                         if (Arrays.equals(FILEHEAD_ZCXC_PACKET_HEAD, FILEHEAD_ZCXC_PACKET_HEAD_FLAG)){
                         	if ((pos - FILEHEAD_ZCXC_PACKET_HEAD_skip2MTP3DiffLen) < (packetStartPos + FILEHEAD_ZCXC_PACKET_HEAD_skip2MTP3DiffLen) ){  //异常数据包
-                        		System.out.println("=====Negative: pos="+pos+"; packetStartPos="+packetStartPos);
+                        		System.out.println(src+"=====Negative: pos="+pos+"; packetStartPos="+packetStartPos);
                         		byte[] errBytes = new byte[pos - packetStartPos];
                         		System.arraycopy(buf, packetStartPos, errBytes, 0, errBytes.length);
                         		System.out.println(ISOUtil.hexdump(errBytes));
@@ -787,13 +878,19 @@ public class FileConvert {
                             	fileOutputStream.write(pcapPacket);
                             	count ++;
                         	}else{
-                        		System.out.println(" NOT MTP3 PACKET.(ERR:-102)");
+                        		System.out.println(src+" NOT MTP3 PACKET.(ERR:-102)");
                         		System.out.println(ISOUtil.hexdump(packet));
                         		
                         		fileInputStream.close();  
                                 fileOutputStream.close(); 
                             	return -102;
                         	}
+                        	
+                        	//超273的MSU
+                    		if (packet.length > MSU_MAX_LENGTH){
+                    			System.out.println(count+" file="+src+" IGNORE MSU because too long ="+packet.length);
+            		    		System.out.println("MSU start with "+HexFormat.bytes2str(packet, 0, 10, true));
+                    		}
                         	
                         	packetStartPos = pos;
                         	pos = pos + FILEHEAD_ZCXC_PACKET_HEAD_skip2MTP3DiffLen;
@@ -805,7 +902,7 @@ public class FileConvert {
             	}  //end while(pos < remainDataLen )
             	
             	if (fileInputStream.available()>0){
-            		System.out.println(count+" established MS="+(System.currentTimeMillis()-old)+"; converting AT "+new Date()); 
+            		System.out.println(count+" file="+src+" established MS="+(System.currentTimeMillis()-old)+"; converting AT "+new Date()); 
             		
             		//不是一个完整包
                 	packet = new byte[remainDataLen - packetStartPos];
@@ -829,6 +926,12 @@ public class FileConvert {
                 	fileOutputStream.write(pcapPacket);
                 	count ++;
                 	
+                	//超273的MSU
+            		if (packet.length > MSU_MAX_LENGTH){
+            			System.out.println(count+" file="+src+" IGNORE MSU because too long ="+packet.length);
+    		    		System.out.println("MSU start with "+HexFormat.bytes2str(packet, 0, 10, true));
+            		}
+                	
                 	break;
             	}
                 
@@ -841,7 +944,7 @@ public class FileConvert {
         } catch (Exception e) {  
             e.printStackTrace();  
         }  
-		System.out.println(count+" established MS="+(System.currentTimeMillis()-old)+"; FINISHED AT "+new Date()); 
+		System.out.println(count+" file="+src+" established MS="+(System.currentTimeMillis()-old)+"; FINISHED AT "+new Date()); 
 		
 		return  count;
 	}
