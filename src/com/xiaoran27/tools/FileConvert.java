@@ -121,6 +121,11 @@ Len：4B离线数据长度：网络中实际数据帧的长度，一般不大于
 * V,xiaoran27,2013-8-2
 *  + //超273的MSU
 *  + convert(...)  //支持目录
+*  + //deal 10A5
+*-----------------------------------------------------------------------------*
+* V,xiaoran27,2013-8-8
+*  + //必须从packet的开始位置copy
+*  + //deal 10A5
 \*************************** END OF CHANGE REPORT HISTORY ********************/
 
 
@@ -240,7 +245,7 @@ public class FileConvert {
 //		dst = srcfiles[fi-1]+(ctype.charAt(1)=='1'?".msu":".pcap");
 		
 		ctype = "20";
-		src = "G://workspace//packet//data//bjcdmazcxc//解失败文件";
+		src = "G://workspace//packet//data//bjcdmazcxc//解失败文件//139PPS_0717_215118.dat";
 		
 		FileConvert fc = new FileConvert();
 		fc.convert(ctype, src, dst);
@@ -271,7 +276,7 @@ public class FileConvert {
 		String _src=src, _dst=dst;
 		File file = new File(_src);
 		String filepath = file.getParent();
-		String[] files = {_src};
+		String[] files = {file.getName()};
 		if (file.isDirectory()){
 			filepath = file.getPath();
 			files = file.list();
@@ -307,7 +312,8 @@ public class FileConvert {
 			if (10==type){
 				count = msu2pcap(_src,_dst);
 			}else if (20==type){
-				count = zcxcDat2pcapDirect(_src,_dst);
+//				count = zcxcDat2pcapDirect(_src,_dst);
+				count = zcxcDat2pcap(_src,_dst);
 			}else if (30==type){
 				count = smssDat2pcapDirect(_src,_dst);
 			}else if (21==type){
@@ -617,7 +623,7 @@ public class FileConvert {
 	 * @return 转换的包数
 	 */
 	public int zcxcDat2pcap(final String zcxcDatFile, final String pcapFile) {
-		int count = smssDat2msu(zcxcDatFile,zcxcDatFile+".msu");
+		int count = zcxcDat2msu(zcxcDatFile,zcxcDatFile+".msu");
 		if (count>0){
 			count = msu2pcap(zcxcDatFile+".msu", pcapFile);
 		}
@@ -684,6 +690,35 @@ public class FileConvert {
             while (true) {  
             	
             	while(pos < remainDataLen ){
+            		
+            		//deal 10A5
+            		if (buf[pos]==FILEHEAD_ZCXC_PACKET_10A5_FLAG){
+            			
+            			if ( pos < remainDataLen - FILEHEAD_ZCXC_PACKET_10A5_LENGTH){
+            				//check 10A5
+            				byte[] _10a5Bytes = new byte[FILEHEAD_ZCXC_PACKET_10A5_LENGTH];
+            				System.arraycopy(buf, pos, _10a5Bytes, 0, FILEHEAD_ZCXC_PACKET_10A5_LENGTH);
+            				if (Arrays.equals(FILEHEAD_ZCXC_PACKET_10A5, _10a5Bytes)){
+            					pos = pos + FILEHEAD_ZCXC_PACKET_10A5_LENGTH;  //skip 10 A5
+            					packetStartPos = pos;
+            					continue;
+            				}
+            			}else{
+            				//10A5可能被截断
+                        	packet = new byte[remainDataLen - packetStartPos];  //必须从packet的开始位置copy
+                        	System.arraycopy(buf, packetStartPos, packet, 0, packet.length);
+                        	System.arraycopy(packet, 0, buf, 0, packet.length);
+                        	packetStartPos = 0;
+                        	pos = 0;
+                        	
+        	            	//read data (至少有一个包)
+                        	Arrays.fill(buf,packet.length,buf.length, (byte)0);
+        	                remainDataLen = packet.length + fileInputStream.read(buf,packet.length,Math.min(fileInputStream.available(),buf.length-packet.length));
+                    	
+        	                continue;
+            			}
+            			
+            		}
             		
             		if (buf[pos]==MTP3FLAG && pos > packetStartPos + FILEHEAD_ZCXC_PACKET_HEAD_skip2MTP3DiffLen ){
             			//found next packet's pos
@@ -848,6 +883,35 @@ public class FileConvert {
             while (true) {  
             	
             	while(pos < remainDataLen ){
+            		
+            		//deal 10A5
+            		if (buf[pos]==FILEHEAD_ZCXC_PACKET_10A5_FLAG){
+            			
+            			if ( pos < remainDataLen - FILEHEAD_ZCXC_PACKET_10A5_LENGTH){
+            				//check 10A5
+            				byte[] _10a5Bytes = new byte[FILEHEAD_ZCXC_PACKET_10A5_LENGTH];
+            				System.arraycopy(buf, pos, _10a5Bytes, 0, FILEHEAD_ZCXC_PACKET_10A5_LENGTH);
+            				if (Arrays.equals(FILEHEAD_ZCXC_PACKET_10A5, _10a5Bytes)){
+            					pos = pos + FILEHEAD_ZCXC_PACKET_10A5_LENGTH;  //skip 10 A5
+            					packetStartPos = pos;
+            					continue;
+            				}
+            			}else{
+            				//10A5可能被截断
+                        	packet = new byte[remainDataLen - packetStartPos];  //必须从packet的开始位置copy
+                        	System.arraycopy(buf, packetStartPos, packet, 0, packet.length);
+                        	System.arraycopy(packet, 0, buf, 0, packet.length);
+                        	packetStartPos = 0;
+                        	pos = 0;
+                        	
+        	            	//read data (至少有一个包)
+                        	Arrays.fill(buf,packet.length,buf.length, (byte)0);
+        	                remainDataLen = packet.length + fileInputStream.read(buf,packet.length,Math.min(fileInputStream.available(),buf.length-packet.length));
+                    	
+        	                continue;
+            			}
+            			
+            		}
             		
             		if (buf[pos]==MTP3FLAG && pos > packetStartPos + FILEHEAD_ZCXC_PACKET_HEAD_skip2MTP3DiffLen ){
             			//found next packet's pos
