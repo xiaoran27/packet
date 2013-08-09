@@ -45,9 +45,9 @@ public class MapCodec {
     mapCodec.usage();
 
     if (args.length > 1) {
-        mapCodec.encodecMoFsm(args[0], args[1]);
+        mapCodec.encodecMoMtFsm(args[0], args[1]);
     }else if (args.length > 0) {
-      mapCodec.encodecMoFsm(args[0], args[0] + ".msu");
+      mapCodec.encodecMoMtFsm(args[0], args[0] + ".msu");
     }  
   }
 
@@ -61,10 +61,10 @@ public class MapCodec {
     System.out.println();
     System.out.println("\tNotes:");
     System.out.println("\t1. CSV file format:");
-    System.out.println("\t\ttitle: opc,dpc,smsc,gt,calling,called,content,momt,rate");
-    System.out.println("\t\tdemo1: 0x010203,0x030201,8613800210500,8613743168,8613901988686,8613788992292,\"SMS content\",mo,5/30s");
-    System.out.println("\t\tdemo2: 0x010203,0x030201,8613800210500,8613743168,8613901988686,8613788992292,\"短信内容\",mt,50/10m");
-    System.out.println("\t\tdemo3: 0x010203,0x030201,8613800210500,8613743168,8613901988686,8613788992292,\"SMS content|短信内容\",mo,500/1h");
+    System.out.println("\t\ttitle: momt,dpc,opc,cdSmsc,cgGt,sender,receiver,content,rate");
+    System.out.println("\t\tdemo1: mo,0x010203,0x030201,8613800210500,8613743168,8613901988686,8613788992292,\"SMS content\",5/30s");
+    System.out.println("\t\tdemo2: mt,0x010203,0x030201,8613800210500,8613743168,8613901988686,8613788992292,\"短信内容\",50/10m");
+    System.out.println("\t\tdemo3: mo,0x010203,0x030201,8613800210500,8613743168,8613901988686,8613788992292,\"SMS content|短信内容\",500/1h");
     System.out.println("\t2. MSU file format: hex by space, a MTP3's MSU per line.");
     System.out.println("\t\tdemo1: 83 64 fe 0b 01 fe 0b 02 09 81 03 0e 1a 0b 12 08 00 12 04 68 ...");
     System.out.println();
@@ -77,8 +77,8 @@ public class MapCodec {
    * @param dstfile  每行是一个MTP3的MSU
    * @return  个数
    */
-  public int encodecMoFsm(String csvfile, String msuFile) {
-    int count = -1;
+  public int encodecMoMtFsm(String csvfile, String msuFile) {
+    int count = 0;
     long old = System.currentTimeMillis();
     System.out.println(count + " encodecMoFsm - established MS=" + (System.currentTimeMillis() - old) + "; START AT " + new Date());
 
@@ -87,7 +87,9 @@ public class MapCodec {
       BufferedWriter bw = new BufferedWriter(new FileWriter(new File(msuFile)));
 
       String line = br.readLine();
-
+      if (line.startsWith("momt,")){  //skip title
+    	  line = br.readLine();
+      }
       while (null != line) {
         if ((line.trim().length() < 1) || line.startsWith("--") || line.startsWith("#")) { //--，#作为注释行
           line = br.readLine();
@@ -95,11 +97,25 @@ public class MapCodec {
           continue;
         }
 
-        if (line.split(",").length >= 7) {
-          byte[] msu = encodecMoFsm(0x010203, 0x030201, "8613800210500", "8613743168", "8613901988686", "8613788992292", "中文");
-          bw.write(HexFormat.bytes2str(msu, true));
-          bw.write("\r\n");
+        String[] data = line.split(",");
+        if (data.length >= 8) {  //momt,dpc,opc,cdSmsc,cgGt,sender,receiver,content,rate
+        	int dpc=Integer.parseInt(data[1].substring(2),16);
+        	int opc=Integer.parseInt(data[2].substring(2),16);
+        	
+        	byte[] msu = null;
+        	if ("mo".equalsIgnoreCase(data[0])){
+	          msu = encodecMoFsm(dpc,opc,data[3],data[4],data[5],data[6],data[7]);
+        	}else{
+        	  msu = encodecMtFsm(dpc,opc,data[3],data[4],data[5],data[6],data[7]);
+        	}
+        	if (null!=msu){
+	        	bw.write(HexFormat.bytes2str(msu, true));
+	        	bw.write("\r\n");
+	        	count ++;
+        	}
         }
+        
+        line = br.readLine();
       } //end while (null!=line)
 
       // 关闭流  
@@ -112,6 +128,26 @@ public class MapCodec {
     System.out.println(count + " encodecMoFsm - established MS=" + (System.currentTimeMillis() - old) + "; FINISHED AT " + new Date());
 
     return count;
+  }
+  
+  /**
+   * 构造MT消息.
+   *
+  * @param dpc
+  * @param opc
+  * @param cd  - sccp called
+  * @param cg  - sccp calling
+  * @param sender - calling
+  * @param receiver - called
+  * @param content - short message content
+  * @return MSU码流
+  */
+  public byte[] encodecMtFsm(int dpc, int opc, String cd, String cg, String sender, String receiver, String content) {
+    byte[] msu = new byte[276];
+    //TODO
+    
+    System.out.println("unsupport MT now.");
+    return null;
   }
 
   /**
