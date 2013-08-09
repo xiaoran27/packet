@@ -8,6 +8,9 @@
 *-----------------------------------------------------------------------------*
 * V,xiaoran27,2013-7-17
 * + //--£¬#×÷Îª×¢ÊÍÐÐ
+*-----------------------------------------------------------------------------*
+* V,xiaoran27,2013-8-17
+* + //·ÀÖ¹¶Á×èÈû
 \*************************** END OF CHANGE REPORT HISTORY ********************/
 
 package com.lj.tools;
@@ -57,7 +60,7 @@ public class SockClientSimulate {
 		System.out.println("\t-Dthreads={THREAD_NUM}  num threads,def: 1");
 		System.out.println("\t-DreqFilename={BYTE_REQ}  a filename(format: HEX) for REQ, def: req.txt");
 		System.out.println("\t-DrspFilename={BYTE_RSP} <unused>  a filename(format: HEX) for RSP, def: rsp.txt");
-		System.out.println("\t-Drate={RATE}  num of a second, def: 10");
+		System.out.println("\t-Drate={RATE}  count of a second, def: 10");
 		System.out.println("\t-Dtime={RUN_TIME} milliseconds, 0 is unlimit, def: 0");
 		System.out.println("\t-Dinteval={SLEEP_TIME} <unused> milliseconds, def: 100");
 		System.out.println();
@@ -147,7 +150,7 @@ class SockClientRunnable implements Runnable {
 			Socket socket = new Socket();
 			socket.connect(new InetSocketAddress(ip, port));
 			socket.setKeepAlive(true);
-			socket.setSoTimeout(inteval);
+			socket.setSoTimeout(inteval<1?1:inteval);  //·ÀÖ¹¶Á×èÈû
 	        
 	        InputStream streamFromServer = socket.getInputStream();
 	        OutputStream streamToServer = socket.getOutputStream();
