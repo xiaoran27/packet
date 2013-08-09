@@ -126,6 +126,9 @@ Len：4B离线数据长度：网络中实际数据帧的长度，一般不大于
 * V,xiaoran27,2013-8-8
 *  + //必须从packet的开始位置copy
 *  + //deal 10A5
+*-----------------------------------------------------------------------------*
+* V,xiaoran27,2013-8-9
+*  + final static public byte MTPFLAG_8x
 \*************************** END OF CHANGE REPORT HISTORY ********************/
 
 
@@ -150,6 +153,18 @@ import com.lj.utils.ISOUtil;
  * SS7的采集文件格式互转
  * 
  * @author xiaoran27
+ *
+ */
+/**
+ * @author 0078
+ *
+ */
+/**
+ * @author 0078
+ *
+ */
+/**
+ * @author 0078
  *
  */
 public class FileConvert {
@@ -191,8 +206,10 @@ public class FileConvert {
 	final static public int FILEHEAD_PCAP_PACKET_HEAD_LENGTH = 4*4; //timestampSec,timestampMs,caplen,len
 	final static private byte[] FILEHEAD_PCAP_PACKET_HEAD = new byte[FILEHEAD_PCAP_PACKET_HEAD_LENGTH];
 
-	//MTP2 FLAG
-	final public byte MTP3FLAG = (byte)0x83;
+	//MTP FLAG
+	final static public byte MTPFLAG_81 = (byte)0x81;  //test
+	final static public byte MTPFLAG_83 = (byte)0x83;  //map
+	final static public byte MTPFLAG_85 = (byte)0x85;  //isup
 	
 	//TYPE
 	final static public int TYPE_PCAP = 0;
@@ -720,7 +737,7 @@ public class FileConvert {
             			
             		}
             		
-            		if (buf[pos]==MTP3FLAG && pos > packetStartPos + FILEHEAD_ZCXC_PACKET_HEAD_skip2MTP3DiffLen ){
+            		if (isMtpFlag(buf[pos]) && pos > packetStartPos + FILEHEAD_ZCXC_PACKET_HEAD_skip2MTP3DiffLen ){
             			//found next packet's pos
             			Arrays.fill(FILEHEAD_ZCXC_PACKET_HEAD, (byte)0);
             			System.arraycopy(buf, pos-6-8, FILEHEAD_ZCXC_PACKET_HEAD, 0, FILEHEAD_ZCXC_PACKET_HEAD_FLAG.length);
@@ -744,7 +761,7 @@ public class FileConvert {
                         	packetStartPos = packetStartPos + FILEHEAD_ZCXC_PACKET_HEAD_skip2MTP3DiffLen;  
                         	packet = new byte[pos - packetStartPos];
                         	System.arraycopy(buf, packetStartPos, packet, 0, packet.length);
-                        	if (packet[0]==MTP3FLAG){
+                        	if (isMtpFlag(packet[0])){
                         		bw.write(bytes2str(packet,true));
                         		bw.write("\r\n");
                             	count ++;
@@ -913,7 +930,7 @@ public class FileConvert {
             			
             		}
             		
-            		if (buf[pos]==MTP3FLAG && pos > packetStartPos + FILEHEAD_ZCXC_PACKET_HEAD_skip2MTP3DiffLen ){
+            		if ( isMtpFlag(buf[pos]) && pos > packetStartPos + FILEHEAD_ZCXC_PACKET_HEAD_skip2MTP3DiffLen ){
             			//found next packet's pos
             			Arrays.fill(FILEHEAD_ZCXC_PACKET_HEAD, (byte)0);
             			System.arraycopy(buf, pos-6-8, FILEHEAD_ZCXC_PACKET_HEAD, 0, FILEHEAD_ZCXC_PACKET_HEAD_FLAG.length);
@@ -937,7 +954,7 @@ public class FileConvert {
                         	packetStartPos = packetStartPos + FILEHEAD_ZCXC_PACKET_HEAD_skip2MTP3DiffLen;  
                         	packet = new byte[pos - packetStartPos];
                         	System.arraycopy(buf, packetStartPos, packet, 0, packet.length);
-                        	if (packet[0]==MTP3FLAG){
+                        	if (isMtpFlag(packet[0])){
                         		byte[] pcapPacket = mtp3msu2pcap(packet, ms);
                             	fileOutputStream.write(pcapPacket);
                             	count ++;
@@ -1046,6 +1063,11 @@ public class FileConvert {
 		bb.flip();
 		
 		return  bb.getInt();
+	}
+	
+	//判断是否是MTP的FLAG值
+	static public boolean isMtpFlag(byte b){
+		return  MTPFLAG_81 == b || MTPFLAG_83 == b || MTPFLAG_85 == b ;
 	}
 	
 	/**
