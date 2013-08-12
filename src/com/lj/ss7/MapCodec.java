@@ -9,6 +9,9 @@
 *-----------------------------------------------------------------------------*
 * V,xiaoran27,2013-7-29
 * + encodecMoFsm(String csvfile, String msuFile)
+*-----------------------------------------------------------------------------*
+* V,xiaoran27,2013-8-12
+* + //支持rate的设置 //分散的msu文件
 \*************************** END OF CHANGE REPORT HISTORY ********************/
 package com.lj.ss7;
 
@@ -22,6 +25,7 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 
+import java.util.Arrays;
 import java.util.Date;
 
 
@@ -69,6 +73,20 @@ public class MapCodec {
     System.out.println("\t\tdemo1: 83 64 fe 0b 01 fe 0b 02 09 81 03 0e 1a 0b 12 08 00 12 04 68 ...");
     System.out.println();
   }
+  
+  /**
+   * 将excel转为csv文件
+   *
+   * @param srcfile  指定格式的CSV文件
+   * @param dstfile  每行是一个MTP3的MSU
+   * @return  个数
+   */
+  public int excel2csv(String src, String dst) {
+	  int count = 0;
+	  //TODO
+	  
+	  return count;
+  }
 
   /**
    * 据CSV的格式进行MO编码生成对应的MTP3码流.
@@ -78,9 +96,11 @@ public class MapCodec {
    * @return  个数
    */
   public int encodecMoMtFsm(String csvfile, String msuFile) {
+	String[] msuArray = new String[60*60];  //每秒一个  ,共1h。
+	
     int count = 0;
     long old = System.currentTimeMillis();
-    System.out.println(count + " encodecMoFsm - established MS=" + (System.currentTimeMillis() - old) + "; START AT " + new Date());
+    System.out.println(count + " lines is converted from "+csvfile+" to "+msuFile+"; established MS=" + (System.currentTimeMillis() - old) + "; START AT " + new Date());
 
     try {
       BufferedReader br = new BufferedReader(new FileReader(new File(csvfile)));
@@ -109,9 +129,34 @@ public class MapCodec {
         	  msu = encodecMtFsm(dpc,opc,data[3],data[4],data[5],data[6],data[7]);
         	}
         	if (null!=msu){
-	        	bw.write(HexFormat.bytes2str(msu, true));
-	        	bw.write("\r\n");
-	        	count ++;
+        		//计算设置的发送频率
+	        	String rate = data[8];  //支持rate的设置
+	        	String[] rates = (rate==null?"1/1h":rate).split("/");
+	        	char rflag = rates[1].charAt(rates[1].length()-1);
+	        	int msuCntPerHour = msuArray.length/3600;
+	        	if ('h'==rflag || 'H'==rflag){
+	        		msuCntPerHour = Integer.parseInt(rates[0]) * msuArray.length/Integer.parseInt(rates[1].substring(0,rates[1].length()-1))/3600;
+	        	}else if ('m'==rflag || 'M'==rflag){
+	        		msuCntPerHour = Integer.parseInt(rates[0]) * msuArray.length/Integer.parseInt(rates[1].substring(0,rates[1].length()-1))/60;
+	        	}else {
+	        		msuCntPerHour = Integer.parseInt(rates[0]) * msuArray.length/Integer.parseInt(rates[1].substring(0,rates[1].length()-1));
+	        	} 
+	        	int step = 3600/msuCntPerHour;
+	        	
+	        	String sMsu = HexFormat.bytes2str(msu, true);
+	        	//save to  array
+	        	for (int i=0; i<msuCntPerHour; i++){
+		        	bw.write(sMsu);
+		        	bw.write("\r\n");
+		        	count ++;
+		        	
+		        	for (int j=i*step; j<(i*step+step); j++){
+		        		if (null==msuArray[j]){
+		        			msuArray[j] = sMsu;
+		        			break;
+		        		}
+		        	}
+	        	}
         	}
         }
         
@@ -121,11 +166,25 @@ public class MapCodec {
       // 关闭流  
       br.close();
       bw.close();
+      
+      //分散的msu文件
+      BufferedWriter bw2 = new BufferedWriter(new FileWriter(new File(msuFile.substring(0, msuFile.length()-3)+"avg.msu")));
+      final String FILL_MSU = msuArray[0].substring(0,7*3)+"03 11 40 31 32 33 34";  //81 16 0f 32 24 04 fd 03 11 40 31 32 33 34
+      for (int i=0; i<msuArray.length; i++){
+    	  if (null==msuArray[i]){
+    		  bw2.write(FILL_MSU);
+    	  }else{
+    		  bw2.write(msuArray[i]);
+    	  }
+    	  bw2.write("\r\n");
+      }
+      bw2.close();
+      
     } catch (Exception e) {
       e.printStackTrace();
     }
 
-    System.out.println(count + " encodecMoFsm - established MS=" + (System.currentTimeMillis() - old) + "; FINISHED AT " + new Date());
+    System.out.println(count + " lines is converted from "+csvfile+" to "+msuFile+"; established MS=" + (System.currentTimeMillis() - old) + "; FINISHED AT " + new Date());
 
     return count;
   }
