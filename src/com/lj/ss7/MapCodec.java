@@ -12,6 +12,10 @@
 *-----------------------------------------------------------------------------*
 * V,xiaoran27,2013-8-12
 * + //支持rate的设置 //分散的msu文件
+*-----------------------------------------------------------------------------*
+* V,xiaoran27,2013-8-13
+* + //2h内10/s分散处理
+* + //上一组已存满
 \*************************** END OF CHANGE REPORT HISTORY ********************/
 package com.lj.ss7;
 
@@ -96,7 +100,15 @@ public class MapCodec {
    * @return  个数
    */
   public int encodecMoMtFsm(String csvfile, String msuFile) {
-	String[] msuArray = new String[60*60];  //每秒一个  ,共1h。
+	
+	//2h内10/s分散处理
+	final int MSU_SPEED = 10;  //10/s
+	final int MSU_STORE_HOURS = 2;  //2h
+	final int MSU_MAX_SIZE = MSU_SPEED*60*60*MSU_STORE_HOURS;  //speed*hours
+	
+	
+	String[] msuArray = new String[MSU_MAX_SIZE];  //每秒一个。
+	int pos = 0;
 	
     int count = 0;
     long old = System.currentTimeMillis();
@@ -124,38 +136,44 @@ public class MapCodec {
         	
         	byte[] msu = null;
         	if ("mo".equalsIgnoreCase(data[0])){
-	          msu = encodecMoFsm(dpc,opc,data[3],data[4],data[5],data[6],data[7]);
+	          msu = encodecMoFsm(dpc,opc,data[3],data[4],data[5],data[6],data[7].length()<1?"no content":data[7]);
         	}else{
-        	  msu = encodecMtFsm(dpc,opc,data[3],data[4],data[5],data[6],data[7]);
+        	  msu = encodecMtFsm(dpc,opc,data[3],data[4],data[5],data[6],data[7].length()<1?"no content":data[7]);
         	}
         	if (null!=msu){
+	        	String sMsu = HexFormat.bytes2str(msu, true);
+	        	bw.write(sMsu);
+	        	bw.write("\r\n");
+	        	count ++;
+	        	
         		//计算设置的发送频率
 	        	String rate = data[8];  //支持rate的设置
 	        	String[] rates = (rate==null?"1/1h":rate).split("/");
 	        	char rflag = rates[1].charAt(rates[1].length()-1);
-	        	int msuCntPerHour = msuArray.length/3600;
+	        	int _msuCnt = Integer.parseInt(rates[0]);
+	        	int _msuTime = 3600;
 	        	if ('h'==rflag || 'H'==rflag){
-	        		msuCntPerHour = Integer.parseInt(rates[0]) * msuArray.length/Integer.parseInt(rates[1].substring(0,rates[1].length()-1))/3600;
+	        		_msuTime = Integer.parseInt(rates[1].substring(0,rates[1].length()-1)) * 3600;
 	        	}else if ('m'==rflag || 'M'==rflag){
-	        		msuCntPerHour = Integer.parseInt(rates[0]) * msuArray.length/Integer.parseInt(rates[1].substring(0,rates[1].length()-1))/60;
+	        		_msuTime = Integer.parseInt(rates[1].substring(0,rates[1].length()-1)) * 60;
+	        	}else if ('s'==rflag || 'S'==rflag){
+	        		_msuTime = Integer.parseInt(rates[1].substring(0,rates[1].length()-1)) * 1;
 	        	}else {
-	        		msuCntPerHour = Integer.parseInt(rates[0]) * msuArray.length/Integer.parseInt(rates[1].substring(0,rates[1].length()-1));
+	        		_msuTime = Integer.parseInt(rates[1].substring(0,rates[1].length())) * 1;
 	        	} 
-	        	int step = 3600/msuCntPerHour;
+	        	int step = MSU_SPEED * (_msuTime/_msuCnt);
 	        	
-	        	String sMsu = HexFormat.bytes2str(msu, true);
 	        	//save to  array
-	        	for (int i=0; i<msuCntPerHour; i++){
-		        	bw.write(sMsu);
-		        	bw.write("\r\n");
-		        	count ++;
-		        	
-		        	for (int j=i*step; j<(i*step+step); j++){
+	        	for (int i=0; i<_msuCnt; i++){
+		        	for (int j=(pos+i)*step; j<(pos+i+1)*step; j++){
 		        		if (null==msuArray[j]){
 		        			msuArray[j] = sMsu;
 		        			break;
 		        		}
 		        	}
+        			if (null!=msuArray[(pos+i+1)*step-1]){  //上一组已存满
+            			pos ++;
+            		}
 	        	}
         	}
         }
@@ -169,7 +187,10 @@ public class MapCodec {
       
       //分散的msu文件
       BufferedWriter bw2 = new BufferedWriter(new FileWriter(new File(msuFile.substring(0, msuFile.length()-3)+"avg.msu")));
-      final String FILL_MSU = msuArray[0].substring(0,7*3)+"03 11 40 31 32 33 34";  //81 16 0f 32 24 04 fd 03 11 40 31 32 33 34
+      bw2.write("-- send msu speed is "+MSU_SPEED);
+      bw2.write("\r\n");
+      
+      final String FILL_MSU = " 81"+msuArray[0].substring(3,6*3)+" 03 11 40 31 32 33 34";  //test msu:81 16 0f 32 24 04 fd 03 11 40 31 32 33 34
       for (int i=0; i<msuArray.length; i++){
     	  if (null==msuArray[i]){
     		  bw2.write(FILL_MSU);
