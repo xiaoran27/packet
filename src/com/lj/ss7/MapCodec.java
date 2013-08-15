@@ -16,9 +16,16 @@
 * V,xiaoran27,2013-8-13
 * + //2h内10/s分散处理
 * + //上一组已存满
+*-----------------------------------------------------------------------------*
+* V,xiaoran27,2013-8-15
+* + //防止越界
+* + final int MSU_xxx
+* + int nullPosForLine = 0;  //每个设置中首个可存放msu的位置
+* + int nvlPosForStep = nullPosForLine; //每个msu可存放的位置
 \*************************** END OF CHANGE REPORT HISTORY ********************/
 package com.lj.ss7;
 
+import com.javayjm.excel.ExcelManager;
 import com.lj.utils.ISOUtil;
 
 import com.xiaoran27.tools.HexFormat;
@@ -31,6 +38,11 @@ import java.io.FileWriter;
 
 import java.util.Arrays;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.apache.commons.lang.builder.ToStringBuilder;
 
 
 /**
@@ -63,7 +75,10 @@ public class MapCodec {
    * USAGE
    */
   public void usage() {
-    System.out.println("Usage: java -cp packet.jar com.lj.ss7.MapCodec srcfile [dstfile]");
+    System.out.println("Usage: java -DmsuSpeed=10 -DmsuHours=2 -DmsuOverload=2 -cp packet.jar com.lj.ss7.MapCodec srcfile [dstfile]");
+    System.out.println("\t-DmsuSpeed={MSU_SPEED} OPTION, speed(=lines) , def: 10");
+	System.out.println("\t-DmsuHours={MSU_HOURS} OPTION, time(=max time): hour, def: 2");
+	System.out.println("\t-DmsuOverload={MSU_OVERLOAD} OPTION, more msu, def: 2");
     System.out.println("\tsrcfile -  CSV file ");
     System.out.println("\tdstfile -  OPTION, MSU file.  def: ${srcfile}.msu");
     System.out.println();
@@ -78,19 +93,6 @@ public class MapCodec {
     System.out.println();
   }
   
-  /**
-   * 将excel转为csv文件
-   *
-   * @param srcfile  指定格式的CSV文件
-   * @param dstfile  每行是一个MTP3的MSU
-   * @return  个数
-   */
-  public int excel2csv(String src, String dst) {
-	  int count = 0;
-	  //TODO
-	  
-	  return count;
-  }
 
   /**
    * 据CSV的格式进行MO编码生成对应的MTP3码流.
@@ -101,14 +103,14 @@ public class MapCodec {
    */
   public int encodecMoMtFsm(String csvfile, String msuFile) {
 	
-	//2h内10/s分散处理
-	final int MSU_SPEED = 10;  //10/s
-	final int MSU_STORE_HOURS = 2;  //2h
+	final int MSU_OVERLOAD = Integer.parseInt(System.getProperty("msuOverload", "2"));  //多发MSU的个数
+	final int MSU_SPEED = Integer.parseInt(System.getProperty("msuSpeed", "10"));  //一般是文件中的行数
+	final int MSU_STORE_HOURS = Integer.parseInt(System.getProperty("msuHours", "2"));  //2h，一般是rate的最大时长
 	final int MSU_MAX_SIZE = MSU_SPEED*60*60*MSU_STORE_HOURS;  //speed*hours
 	
 	
 	String[] msuArray = new String[MSU_MAX_SIZE];  //每秒一个。
-	int pos = 0;
+	int nullPosForLine = 0;  //每个设置中首个可存放msu的位置
 	
     int count = 0;
     long old = System.currentTimeMillis();
@@ -150,7 +152,7 @@ public class MapCodec {
 	        	String rate = data[8];  //支持rate的设置
 	        	String[] rates = (rate==null?"1/1h":rate).split("/");
 	        	char rflag = rates[1].charAt(rates[1].length()-1);
-	        	int _msuCnt = Integer.parseInt(rates[0]);
+	        	int _msuCnt = Integer.parseInt(rates[0])+MSU_OVERLOAD;
 	        	int _msuTime = 3600;
 	        	if ('h'==rflag || 'H'==rflag){
 	        		_msuTime = Integer.parseInt(rates[1].substring(0,rates[1].length()-1)) * 3600;
@@ -164,15 +166,25 @@ public class MapCodec {
 	        	int step = MSU_SPEED * (_msuTime/_msuCnt);
 	        	
 	        	//save to  array
+	        	int nvlPosForStep = nullPosForLine; //每个msu可存放的位置
 	        	for (int i=0; i<_msuCnt; i++){
-		        	for (int j=(pos+i)*step; j<(pos+i+1)*step; j++){
+	        		int j=nvlPosForStep;  
+		        	for (; j<nvlPosForStep+(i+1)*step; j++){
+		        		if (j >= MSU_MAX_SIZE){  //防止越界
+		        			System.out.println(MSU_MAX_SIZE+" line="+line);  
+		        			System.out.println(count+" lines j="+j+"; nvlPosForStep="+nvlPosForStep+"; i="+i+";step="+step);
+		        			break;
+		        		}
+		        		
 		        		if (null==msuArray[j]){
 		        			msuArray[j] = sMsu;
+		        			nvlPosForStep = nvlPosForStep+step;
+		        			if (i==0) nullPosForLine = j+1;
 		        			break;
 		        		}
 		        	}
-        			if (null!=msuArray[(pos+i+1)*step-1]){  //上一组已存满
-            			pos ++;
+        			if (j == nvlPosForStep+(i+1)*step){  
+        				System.out.println("CONFLICT(NO NULL POS): from "+nvlPosForStep+" to "+j);  
             		}
 	        	}
         	}
