@@ -8,5 +8,18 @@
 		<property name="date" column="5" excelTitleName="日期" dataType="Date" maxLength="15" fixity="" codeTableName="" default=""/>
 	</model>
 	
+	<!-- momt,dpc,opc,cdSmsc,cgGt,sender,receiver,content,rate -->
+	<model id="smsModel" class="com.javayjm.model.Sms" sheetNo="2" startRow="1">
+		<property name="momt" column="11" excelTitleName="MO/MT" dataType="String" maxLength="15" fixity="" codeTableName="" default=""/>
+		<property name="dpc" column="50" excelTitleName="" dataType="String" maxLength="15" fixity="yes" codeTableName="" default="0x010203"/>
+		<property name="opc" column="51" excelTitleName="" dataType="String" maxLength="15" fixity="yes" codeTableName="" default="0x030201"/>
+		<property name="cdSmsc" column="52" excelTitleName="" dataType="String" maxLength="15" fixity="yes" codeTableName="" default="8613800210500"/>
+		<property name="cgGt" column="53" excelTitleName="" dataType="String" maxLength="15" fixity="yes" codeTableName="" default="8613743168"/>
+		<property name="sender" column="12" excelTitleName="主叫" dataType="String" maxLength="15" fixity="" codeTableName="" default=""/>
+		<property name="receiver" column="13" excelTitleName="被叫" dataType="String" maxLength="15" fixity="" codeTableName="" default=""/>
+		<property name="content" column="14" excelTitleName="短信内容" dataType="String" maxLength="15" fixity="" codeTableName="" default="no_sms_content"/>
+		<property name="rate" column="10" excelTitleName="发送频率" dataType="String" maxLength="15" fixity="" codeTableName="" default="1/1h"/>
+	</model>
+	
 	<!-- column :指excel没有表头名称时,可以对应所排的列号 -->
 </models>
