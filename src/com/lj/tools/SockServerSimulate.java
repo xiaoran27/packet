@@ -11,6 +11,9 @@
 *  + //支持读取目录
 *  + //read RECV, but ignore them //deplay ms
 *  + //MSU超长丢弃
+*-----------------------------------------------------------------------------*
+* V,xiaoran27,2013-8-15
+*  + //可能有81,85等msu
 \*************************** END OF CHANGE REPORT HISTORY ********************/
 
 
@@ -259,12 +262,13 @@ public class SockServerSimulate {
 		    		continue;
 		    	}
 		    	
-		    	if (!line.trim().startsWith("83")) {  //illegal msu
-		    		System.out.println("ERR: "+line);
-		    		
-		    		line = br.readLine();
-		    		continue;
-		    	}
+		    	//可能有81,85等msu
+//		    	if (!line.trim().startsWith("83")) {  //illegal msu
+//		    		System.out.println("ERR: "+line);
+//		    		
+//		    		line = br.readLine();
+//		    		continue;
+//		    	}
 		    	long _old = System.currentTimeMillis();
 		    	
 		    	//change OPC=0x010203 & DPC=0x030201
