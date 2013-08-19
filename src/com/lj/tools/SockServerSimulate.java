@@ -14,6 +14,9 @@
 *-----------------------------------------------------------------------------*
 * V,xiaoran27,2013-8-15
 *  + //可能有81,85等msu
+*-----------------------------------------------------------------------------*
+* V,xiaoran27,2013-8-19
+*  + //生成msu后启动独立线程发送
 \*************************** END OF CHANGE REPORT HISTORY ********************/
 
 
@@ -29,25 +32,36 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import lombok.Getter;
+import lombok.Setter;
+import lombok.ToString;
 
 import com.xiaoran27.tools.FileConvert;
 import com.xiaoran27.tools.HexFormat;
 
-
+@ToString
 public class SockServerSimulate {
 	
-	private String filename = "momt.msu";
-	private int port = 10308;
+	@Setter @Getter private String filename = "momt.msu";
+	@Setter @Getter private int port = 10308;
 	
-	private String dpc = null;
-	private String opc = null;
+	@Setter @Getter private String dpc = null;
+	@Setter @Getter private String opc = null;
 	
-	private int rate = 100;
-	private int inteval = 1000/rate - 1;
+	@Setter @Getter private boolean isMsudCsp = true;  //是否是msudcsp的接口
 	
-	private boolean isMsudCsp = true;  //是否是msudcsp的接口
+	@Setter @Getter private int rate = 100;
+	@Setter @Getter private int inteval = 1000/rate - 1;
+	@Setter @Getter private int time = 0;  //秒: <0 - total ; 0-loop
+	
+	private Map<String,List<byte[]>> threadMsuMap =  new HashMap<String,List<byte[]>>();  //存放每个task及msu数据
 
 	/**
 	 * @param args
@@ -75,6 +89,7 @@ public class SockServerSimulate {
 			int inteval = Integer.parseInt(System.getProperty("inteval", "100"));
 			inteval = 1000/rate - 1;
 			sockServerSimulate.setInteval(inteval);
+			sockServerSimulate.setTime(time);
 			
 			sockServerSimulate.server();
 			
@@ -99,72 +114,6 @@ public class SockServerSimulate {
 		System.out.println("\t-Dinteval={SLEEP_TIME} <unused> milliseconds, def: 100");
 		System.out.println();
 	}
-	
-	public String getFilename() {
-		return filename;
-	}
-
-	public void setFilename(String filename) {
-		this.filename = filename;
-	}
-	
-	public int getPort() {
-		return port;
-	}
-
-	public void setPort(int port) {
-		this.port = port;
-	}
-	
-	public String getDpc() {
-		return dpc;
-	}
-
-	public void setDpc(String dpc) {
-		this.dpc = dpc;
-	}
-
-	public String getOpc() {
-		return opc;
-	}
-
-	public void setOpc(String opc) {
-		this.opc = opc;
-	}
-
-	public boolean isMsudCsp() {
-		return isMsudCsp;
-	}
-
-	public void setMsudCsp(boolean isMsudCsp) {
-		this.isMsudCsp = isMsudCsp;
-	}
-	
-	
-	
-	public int getRate() {
-		return rate;
-	}
-
-
-
-	public void setRate(int rate) {
-		this.rate = rate;
-	}
-
-
-
-	public int getInteval() {
-		return inteval;
-	}
-
-
-
-	public void setInteval(int inteval) {
-		this.inteval = inteval;
-	}
-
-
 
 	public void server(){
 		server(port);
@@ -185,7 +134,60 @@ public class SockServerSimulate {
 				
 //		        filename = "G://workspace//packet//data//bjcdmazcxc//解失败文件//139PPS_0712_194958.dat.pcap";
 
-				sendMsu(newSocket);
+//				sendMsu(newSocket);
+				
+				//生成msu后启动独立线程发送
+				genMsu(newSocket.toString()) ;
+				class _SockClientHandle extends Thread {  
+					private Socket sock = null;
+			        _SockClientHandle(Socket sock){
+			            this.sock = sock;
+			        }
+			          public void run(){
+			        	  int count = 0;
+			        	  System.out.println(sock.toString()+" - "+count+" is starting at " + new Date());
+			      		
+			      		  try {
+							InputStream streamFromServer = sock.getInputStream();
+							  OutputStream streamToServer = sock.getOutputStream();
+							  
+							  List<byte[]> msuList = threadMsuMap.get(sock.toString());
+							  long __old = System.currentTimeMillis();
+							  for(int i=0; i<msuList.size(); i++){
+								  streamToServer.write(msuList.get(i));
+								  count ++;
+								  
+								  if (time >= 0 ){
+								   if (time > 0 && (System.currentTimeMillis() - __old) >= time*1000  ){
+									   //timeout
+									  break;
+								   }else {
+									   //loop
+									   i = i == msuList.size() - 1 ? -1: i;
+								   }
+								  }
+								  
+								  //rate
+								  long _old = System.currentTimeMillis();
+								  readAndSleep(streamFromServer, _old );
+								  
+								  if (count%1000==0){
+							    	System.out.println(sock.toString()+" - "+count+" is sending at " + new Date());
+							      }
+							  }
+						} catch (Exception e) {
+							e.printStackTrace();
+						}
+			              
+			            System.out.println(sock.toString()+" - "+count+" is finished at " + new Date());
+			          }
+				}
+				new _SockClientHandle(newSocket).start();
+				
+//			    Task task = new Task();
+//			    Thread _thread = new SockClientHandle(newSocket,task);
+//			    _thread.setName("TASK-"+(task.getTaskId()>0?task.getTaskId() : newSocket.toString()));
+//			    _thread.start();
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -193,6 +195,7 @@ public class SockServerSimulate {
 	
 	}
 	
+	//直接读取文件的msu并发送
 	public int sendMsu(Socket socket) throws Exception {
 		int count =0;
 		
@@ -223,11 +226,153 @@ public class SockServerSimulate {
         		System.out.println(f+" is unsupport, ignore it." + new Date());
         		continue;
         	}
+        	
         }
 		
 		return count;
 	}
 	
+	//生成所有msu
+	public int genMsu(String keyname) throws Exception {
+		int count =0;
+		
+		File file = new File(filename);
+        String filepath = file.getParent();
+        String[] datafiles = {file.getName()};
+        if (file.isDirectory()){  //支持读取目录
+        	datafiles = file.list();
+        	Arrays.sort(datafiles);
+        	filepath = file.getPath();
+        }
+        
+        String key = keyname;  //task/thread's name
+        for (String _file : datafiles){
+        	String f = filepath+File.separator+_file;
+        	File datafile = new File(f);
+        	if (datafile.isDirectory()){
+        		System.out.println(f+" is Directory, ignore it." + new Date());
+        		continue;
+            }
+        	
+        	int pos = f.indexOf(".", f.length()-5);
+        	String ext = f.substring(pos+1);
+        	List<byte[]> msuList = new ArrayList<byte[]>();
+        	if ("msu".equalsIgnoreCase(ext) || "txt".equalsIgnoreCase(ext)){
+        		msuList = getMsuFromMsuOrTxt(f);
+        	}else if ("pcap".equalsIgnoreCase(ext)){
+        		msuList = getMsuFromPcap(f);
+        	}else{
+        		System.out.println(f+" is unsupport, ignore it." + new Date());
+        		continue;
+        	}
+        	
+        	List<byte[]> _msuList = threadMsuMap.get(key);
+        	if (_msuList == null){
+        		threadMsuMap.put(key, msuList);
+        	}else{
+        		_msuList.addAll(msuList);
+        	}
+        	
+        }
+		
+		return count;
+	}
+	
+	//读取msu或txt文件的msu
+	public List<byte[]> getMsuFromMsuOrTxt(String filename) throws Exception {
+		
+		List<byte[]> msuList = new ArrayList<byte[]>();
+		
+		int count = 0;
+		
+        File file = new File(filename);
+        String filepath = file.getParent();
+        String[] datafiles = {file.getName()};
+        if (file.isDirectory()){  //支持读取目录
+        	datafiles = file.list();
+        	Arrays.sort(datafiles);
+        	filepath = file.getPath();
+        }
+        
+        for (String f : datafiles){
+        	if (new File(f).isDirectory()){
+        		System.out.println(f+" is Directory, ignore it." + new Date());
+        		continue;
+            }
+        	
+        	int _count = 0;
+        	System.out.println(_count+"; file="+f+" start at " + new Date());
+        	
+	        BufferedReader br = new BufferedReader(new FileReader(new File(filepath+File.separator+f)));
+	        String line = br.readLine();
+	        
+		    while (null!=line){
+		    	if (line.trim().length()<1 || line.startsWith("--")|| line.startsWith("#")) {  //--，#作为注释行
+		    		line = br.readLine();
+		    		continue;
+		    	}
+		    	
+		    	//可能有81,85等msu
+//		    	if (!line.trim().startsWith("83")) {  //illegal msu
+//		    		System.out.println("ERR: "+line);
+//		    		
+//		    		line = br.readLine();
+//		    		continue;
+//		    	}
+		    	long _old = System.currentTimeMillis();
+		    	
+		    	//change OPC=0x010203 & DPC=0x030201
+		    	//line="83 03 02 01 01 02 03 ..."
+		    	String _dpc = dpc.substring(6,8)+" "+dpc.substring(4,6)+" "+dpc.substring(2,4);
+		    	String _opc = opc.substring(6,8)+" "+opc.substring(4,6)+" "+opc.substring(2,4);
+		    	line = line.trim();
+		    	line = line.substring(0,3)+_dpc+" "+_opc+line.substring(20);
+		    	
+		    	byte[] msu = HexFormat.str2bytes(line);
+		    	//MSU超长丢弃
+		    	if (msu.length > FileConvert.MSU_MAX_LENGTH){
+		    		System.out.println(_count+"; file="+f+" start at " + new Date());
+		    		System.out.println("IGNORE MSU because too long ="+msu.length);
+		    		System.out.println("MSU start with "+HexFormat.bytes2str(msu, 0, 10, true));
+		    		
+		    		line = br.readLine();
+		    		continue;
+		    	}
+		    	
+		    	//format: type<1B>+length<4B>+msuLen<4B>+msuData<83...>
+	    		//type+length+msuLen: 1B+4B+4B
+	    		ByteBuffer bb = ByteBuffer.allocate(9+msu.length);
+	    		if (isMsudCsp){
+	    			bb.put((byte)0x06);  //06-msu
+		    		bb.putInt(msu.length+4);
+		    		bb.putInt(msu.length);
+		    	}
+	    		bb.put(msu);
+	    		bb.flip();
+	    		byte[] _msu = bb.array();
+	    		msuList.add(_msu);
+	    		_count ++;
+		    	
+		        if (_count%1000==0){
+		        	System.out.println(_count+"; file="+f+" is starting at " + new Date());
+		        }
+		    	
+		        line = br.readLine();
+		    } //end  while (null!=line)
+		    br.close();
+		    count = count + _count;
+		    
+		    System.out.println(_count+"; file="+f+" is finished at " + new Date());
+        }
+        
+        System.out.println("Total: at " + new Date());
+        System.out.println("count=" + count + "; files: "+Arrays.toString(datafiles));
+		
+//		return count;
+		return msuList;
+	}
+	
+	//读取msu或txt文件的msu并发送
 	public int sendMsuFromMsuOrTxt(Socket socket, String filename) throws Exception {
 		int count = 0;
 		
@@ -332,19 +477,104 @@ public class SockServerSimulate {
 		return count;
 	}
 	
-	private void  readAndSleep(InputStream streamFromServer, long _old ) throws Exception{
+	private void  readAndSleep(InputStream streamFromServer, long _old ) {
 		//read RECV, but ignore them
     	byte[] rbuf = new byte[1024*8];
-        streamFromServer.read(rbuf);  //超时读,可能影响性能
+        try {
+			streamFromServer.read(rbuf);  //超时读,可能影响性能
+		} catch (Exception e) {
+		}
 		        
         //deplay ms
         if ( inteval - (System.currentTimeMillis() - _old) > 0  ){
-        	Thread.currentThread().sleep(inteval - (System.currentTimeMillis() - _old));
+        	try {
+				Thread.currentThread().sleep(inteval - (System.currentTimeMillis() - _old));
+			} catch (InterruptedException e) {
+			}
         }
 		
 	}
 
+	//读取pcap文件的msu
+	public List<byte[]> getMsuFromPcap(String filename) throws Exception {
+		List<byte[]> msuList = new ArrayList<byte[]>();
+		
+		int count = 0;
+		
+        File file = new File(filename);
+        String filepath = file.getParent();
+        String[] datafiles = {file.getName()};
+        if (file.isDirectory()){  //支持读取目录
+        	datafiles = file.list();
+        	Arrays.sort(datafiles);
+        	filepath = file.getPath();
+        }
+        
+        for (String f : datafiles){
+        	if (new File(f).isDirectory()){
+        		System.out.println(f+" is Directory, ignore it." + new Date());
+        		continue;
+            }
+        	
+        	int _count = 0;
+        	System.out.println(_count+"; file="+f+" start at " + new Date());
+        	
+        	FileInputStream fileInputStream = new FileInputStream(new File(filepath+File.separator+f));  
+        	byte[] pcapHead = new byte[FileConvert.FILEHEAD_PCAP_LENGTH];
+        	fileInputStream.read(pcapHead);
+        	
+        	byte[] packetHead = new byte[FileConvert.FILEHEAD_PCAP_PACKET_HEAD_LENGTH];
+		    while (fileInputStream.available()>0){
+		    	long _old = System.currentTimeMillis();
+		    	
+		    	//read packet head
+		    	fileInputStream.read(packetHead);
+		    	
+		    	//calc msu len
+		    	int msuLen = HexFormat.bigbytes2int(packetHead, 12);
+		    	
+		    	//read packet 
+		    	byte[] msu = new byte[msuLen];
+		    	fileInputStream.read(msu);
+		    	
+		    	//MSU超长丢弃
+		    	if (msuLen > FileConvert.MSU_MAX_LENGTH){
+		    		System.out.println(_count+"; file="+f+" start at " + new Date());
+		    		System.out.println("IGNORE MSU because too long ="+msuLen);
+		    		System.out.println("MSU start with "+HexFormat.bytes2str(msu, 0, 10, true));
+		    		continue;
+		    	}
+		    	
+		    	ByteBuffer bb = ByteBuffer.allocate(9+msu.length);
+	    		if (isMsudCsp){
+	    			bb.put((byte)0x06);  //06-msu
+		    		bb.putInt(msu.length+4);
+		    		bb.putInt(msu.length);
+		    	}
+	    		bb.put(msu);
+	    		bb.flip();
+	    		byte[] _msu = bb.array();
+	    		msuList.add(_msu);
+		        _count ++;
+		        
+		        if (_count%1000==0){
+		        	System.out.println(_count+"; file="+f+" is starting at " + new Date());
+		        }
+		    	
+		    } //end  while (null!=line)
+		    fileInputStream.close();
+		    count = count + _count;
+		    
+		    System.out.println(_count+"; file="+f+" is finished at " + new Date());
+        }
+        
+        System.out.println("count=" + count + "; files: "+Arrays.toString(datafiles));
+		
+//		return count;
+		return msuList;
+	}
 	
+	//读取pcap文件的msu并发送
 	public int sendMsuFromPcap(Socket socket, String filename) throws Exception {
 		int count = 0;
 		
