@@ -1,3 +1,14 @@
+/************************ CHANGE REPORT HISTORY ******************************\
+** Product VERSION,UPDATED BY,UPDATE DATE                                     *
+*   DESCRIPTION OF CHANGE                                                     *
+*-----------------------------------------------------------------------------*
+* Example:
+*-----------------------------------------------------------------------------*
+* V,xiaoran27,2013-8-20
+*  + //支持指定sheet
+\*************************** END OF CHANGE REPORT HISTORY ********************/
+
+
 package com.javayjm.excel.file.impl;
 
 import java.io.BufferedReader;
@@ -70,7 +81,7 @@ public class ExcelToModelImpl implements ExcelToModel {
 
             book = Workbook.getWorkbook(this.excelFile);
 
-            Sheet sheet = book.getSheet(0);
+            Sheet sheet = book.getSheet(excelConfig.getSheetNo());  //支持指定sheet
 
             for (int i = excelConfig.getStartRow() - 1; i < sheet.getRows(); i++) { //从指定数据行开始
                 Object obj = this.getModelClass(excelConfig.getClassName());
