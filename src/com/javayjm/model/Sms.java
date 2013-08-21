@@ -8,6 +8,7 @@
 * V,xiaoran27,2013-8-15
 *   create
 *   支持excel保存为csv
+*   M usage()
 \*************************** END OF CHANGE REPORT HISTORY ********************/
 
 package com.javayjm.model;
@@ -51,7 +52,9 @@ public class Sms {
     	  sms.saveCsvFile(args[0], args[1]);
       }else if (args.length > 0) {
     	  sms.saveCsvFile(args[0], args[0] + ".csv");
-      }  
+      }else{
+    	  System.out.println("ERR: no param，see Usage");
+      }
       
     } catch (Exception e) {
       e.printStackTrace();
@@ -63,13 +66,13 @@ public class Sms {
    * USAGE
    */
   public void usage() {
-    System.out.println("Usage: java -cp dom4j.jar -cp jxl.jar -cp packet.jar com.javayjm.model.Sms srcfile [dstfile]");
+    System.out.println("Usage: java -cp commons-logging.jar"+File.pathSeparator+"spring.jar"+File.pathSeparator+"dom4j.jar"+File.pathSeparator+"jxl.jar"+File.pathSeparator+"packet.jar com.javayjm.model.Sms srcfile [dstfile]");
     System.out.println("\tsrcfile -  excel(xls for 97-2003) file ");
     System.out.println("\tdstfile -  OPTION, CSV file.  def: ${srcfile}.csv");
     System.out.println();
     System.out.println("\tNotes:");
     System.out.println("\t1. xls file format(see ImportExcelToModel.xml<id=smsModel>):");
-    System.out.println("\t\ttitle: ...,momt=11,dpc=x,opc=x,cdSmsc=x,cgGt=x,sender=12,receiver=13,content=14,rat10");
+    System.out.println("\t\ttitle: ...,momt=11,dpc=x,opc=x,cdSmsc=x,cgGt=x,sender=12,receiver=13,content=14,rate=10");
     System.out.println();
     System.out.println("\t2. CSV file format:");
     System.out.println("\t\ttitle: momt,dpc,opc,cdSmsc,cgGt,sender,receiver,content,rate");
