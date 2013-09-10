@@ -3,7 +3,13 @@ package com.javayjm.excel.config;
 import java.util.HashMap;
 import java.util.Map;
 
+import lombok.Getter;
+import lombok.Setter;
+
 public class RuturnConfig {
+	
+	@Getter @Setter
+	private int sheetNo = 0;  //数据开始行
 
 	private int startRow = 1;  //数据开始行
 	
