@@ -56,6 +56,11 @@ public class ConfigConstant {
 	 * 如果值为空,设置的默认值
 	 */
 	public static final String PROPERTY_DEFAULT="default";
+	
+	/*
+	 * excel's sheet
+	 */
+	public static final String MODEL_SHEETNO = "sheetNo";
 
 	/*
 	 * 数据开始行
