@@ -6,13 +6,11 @@ import com.javayjm.excel.config.RuturnConfig;
 import com.javayjm.excel.config.RuturnPropertyParam;
 
 import org.dom4j.Document;
-import org.dom4j.DocumentException;
 import org.dom4j.Element;
 
 import org.dom4j.io.SAXReader;
 
 import java.io.File;
-import java.io.InputStream;
 
 import java.util.HashMap;
 import java.util.Iterator;
@@ -21,13 +19,17 @@ import java.util.Map;
 
 
 public class ExcelConfigManagerImpl implements ExcelConfigManager {
-    private String configName = "/conf/ImportExcelToModel.xml";
+    private String configName = "./ImportExcelToModel.xml";
     private SAXReader saxReader;
     private Document doc;
     private Element root;
 
     public ExcelConfigManagerImpl() {
-        String filename = this.getClass().getResource(configName).getPath();
+//        String filename = this.getClass().getResource(configName).getPath();
+        if (!new File(configName).exists()){
+        	configName = "./conf/ImportExcelToModel.xml";  //÷ß≥÷confœ¬≈‰÷√
+        }
+        String filename = configName;
 
         saxReader = new SAXReader();
         try {
@@ -64,6 +66,12 @@ public class ExcelConfigManagerImpl implements ExcelConfigManager {
         RuturnConfig result = new RuturnConfig();
 
         if (model != null) {
+        	//∂¡sheetNo≈‰÷√
+        	String sheetNo = model.attributeValue(ConfigConstant.MODEL_SHEETNO);
+        	if (sheetNo!=null && sheetNo.matches("[0-9]+")){
+        		result.setSheetNo(Integer.parseInt(sheetNo));
+        	}
+        	
         	//∂¡startRow≈‰÷√
         	String startrow = model.attributeValue(ConfigConstant.MODEL_STARTROW);
         	if (startrow!=null && startrow.matches("[0-9]+")){
