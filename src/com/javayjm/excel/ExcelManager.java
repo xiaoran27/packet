@@ -1,9 +1,21 @@
+/************************ CHANGE REPORT HISTORY ******************************\
+** Product VERSION,UPDATED BY,UPDATE DATE                                     *
+*   DESCRIPTION OF CHANGE                                                     *
+*-----------------------------------------------------------------------------*
+* Example:
+*-----------------------------------------------------------------------------*
+* V,xiaoran27,2013-8-22
+* + //poi
+\*************************** END OF CHANGE REPORT HISTORY ********************/
+
+
 package com.javayjm.excel;
 
 import com.javayjm.excel.config.ExcelConfigFactory;
 import com.javayjm.excel.config.ExcelConfigManager;
 import com.javayjm.excel.file.ExcelToModel;
 import com.javayjm.excel.file.impl.ExcelToModelImpl;
+import com.javayjm.excel.file.impl.ExcelToModelImplPoi;
 
 import org.apache.commons.lang.builder.ToStringBuilder;
 
@@ -58,8 +70,8 @@ public class ExcelManager {
 
     public List getModelList() {
         ExcelConfigManager configManager = ExcelConfigFactory.createExcelConfigManger();
-        ExcelToModel etm = new ExcelToModelImpl(this.excelFile,
-                configManager.getModel(modelName, ""), this.valueMap);
+//        ExcelToModel etm = new ExcelToModelImpl(this.excelFile,configManager.getModel(modelName, ""), this.valueMap);  //jxl
+        ExcelToModel etm = new ExcelToModelImplPoi(this.excelFile,configManager.getModel(modelName, ""), this.valueMap);  //poi
         List modelList = etm.getModelList();
 
         return modelList;
@@ -107,6 +119,7 @@ public class ExcelManager {
 	            System.out.println(ToStringBuilder.reflectionToString(obj));
 	        }
     	}
+    	
     }
 
 	/**
