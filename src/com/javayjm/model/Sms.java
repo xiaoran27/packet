@@ -9,6 +9,9 @@
 *   create
 *   支持excel保存为csv
 *   M usage()
+*-----------------------------------------------------------------------------*
+* V,xiaoran27,2013-8-22
+* M cdSmsc->cd cgGT->cg
 \*************************** END OF CHANGE REPORT HISTORY ********************/
 
 package com.javayjm.model;
@@ -50,8 +53,10 @@ public class Sms {
       
       if (args.length > 1) {
     	  sms.saveCsvFile(args[0], args[1]);
+    	  System.out.println("RESULT: see "+args[1]);
       }else if (args.length > 0) {
     	  sms.saveCsvFile(args[0], args[0] + ".csv");
+    	  System.out.println("RESULT: see "+args[0] + ".csv");
       }else{
     	  System.out.println("ERR: no param，see Usage");
       }
@@ -66,16 +71,18 @@ public class Sms {
    * USAGE
    */
   public void usage() {
-    System.out.println("Usage: java -cp commons-logging.jar"+File.pathSeparator+"spring.jar"+File.pathSeparator+"dom4j.jar"+File.pathSeparator+"jxl.jar"+File.pathSeparator+"packet.jar com.javayjm.model.Sms srcfile [dstfile]");
+//    System.out.println("Usage: java -cp commons-logging.jar"+File.pathSeparator+"spring.jar"+File.pathSeparator+"dom4j.jar"+File.pathSeparator+"jxl.jar"+File.pathSeparator+"packet.jar com.javayjm.model.Sms srcfile [dstfile]");
+    System.out.println("Usage: java -cp commons-logging.jar"+File.pathSeparator+"spring.jar"+File.pathSeparator+"dom4j.jar"+File.pathSeparator+"poi.jar"+File.pathSeparator+"poi-ooxml.jar"+File.pathSeparator+"poi-ooxml-schemas.jar"+File.pathSeparator+"xmlbeans.jar"+File.pathSeparator+"packet.jar com.javayjm.model.Sms srcfile [dstfile]");
+
     System.out.println("\tsrcfile -  excel(xls for 97-2003) file ");
     System.out.println("\tdstfile -  OPTION, CSV file.  def: ${srcfile}.csv");
     System.out.println();
     System.out.println("\tNotes:");
     System.out.println("\t1. xls file format(see ImportExcelToModel.xml<id=smsModel>):");
-    System.out.println("\t\ttitle: ...,momt=11,dpc=x,opc=x,cdSmsc=x,cgGt=x,sender=12,receiver=13,content=14,rate=10");
+    System.out.println("\t\ttitle: ...,momt=11,dpc=x,opc=x,cd=x,cg=x,sender=12,receiver=13,content=14,rate=10");
     System.out.println();
     System.out.println("\t2. CSV file format:");
-    System.out.println("\t\ttitle: momt,dpc,opc,cdSmsc,cgGt,sender,receiver,content,rate");
+    System.out.println("\t\ttitle: momt,dpc,opc,cd,cg,sender,receiver,content,rate");
     System.out.println("\t\tdemo1: mo,0x010203,0x030201,8613800210500,8613743168,8613901988686,8613788992292,\"SMS content\",5/30s");
     System.out.println("\t\tdemo2: mt,0x010203,0x030201,8613800210500,8613743168,8613901988686,8613788992292,\"短信内容\",50/10m");
     System.out.println("\t\tdemo3: mo,0x010203,0x030201,8613800210500,8613743168,8613901988686,8613788992292,\"SMS content|短信内容\",500/1h");
@@ -108,14 +115,14 @@ public class Sms {
    */
   @Getter
   @Setter
-  private String cdSmsc = null;
+  private String cd = null;
 
   /**
    * DOCUMENT ME!
    */
   @Getter
   @Setter
-  private String cgGt = null;
+  private String cg = null;
 
   /**
    * DOCUMENT ME!
@@ -215,7 +222,7 @@ public class Sms {
    * @return CsvTitle
    */
   public String getCsvTitle() {
-    return "momt,dpc,opc,cdSmsc,cgGt,sender,receiver,content,rate";
+    return "momt,dpc,opc,cd,cg,sender,receiver,content,rate";
   }
 
   /**
@@ -240,8 +247,8 @@ public class Sms {
     sb.append(momt).append(split);
     sb.append(dpc).append(split);
     sb.append(opc).append(split);
-    sb.append(cdSmsc).append(split);
-    sb.append(cgGt).append(split);
+    sb.append(cd).append(split);
+    sb.append(cg).append(split);
     sb.append(sender).append(split);
     sb.append(receiver).append(split);
     sb.append("\"").append(content).append("\"").append(split);
