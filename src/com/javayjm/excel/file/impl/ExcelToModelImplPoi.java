@@ -7,6 +7,9 @@
 * V,xiaoran27,2013-8-20
 *  create 
 *  poi 实现xlsx的读取
+*-----------------------------------------------------------------------------*
+* V,xiaoran27,2013-8-22
+* M //E格式转整数
 \*************************** END OF CHANGE REPORT HISTORY ********************/
 
 
@@ -30,6 +33,8 @@ import java.util.Map;
 import org.apache.poi.hssf.usermodel.HSSFDateUtil;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.DataFormat;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
@@ -122,7 +127,7 @@ public class ExcelToModelImplPoi implements ExcelToModel {
                         	.get(excelConfig.getClassName()+"#"+(j+1));
                     }
                     
-                    //System.out.println("i = " + i + "  j =" + j + " value ="+ value + " title = " + excelTitleName);
+                    System.out.println("i = " + i + "  j =" + j + " value ="+ value + " title = " + excelTitleName);
                     if (propertyBean != null) {
 
                         // //做出判断,是否需要 Text/Value 值转换.
@@ -235,7 +240,12 @@ public class ExcelToModelImplPoi implements ExcelToModel {
 		    		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
 		    		return sdf.format(cell.getDateCellValue());
 		    	}else{
-		    		return cell.getNumericCellValue();
+		    		Double value = cell.getNumericCellValue(); 
+		    		if(value == value.longValue()){ //E格式转整数
+		    			return value.longValue();
+		    		}else{
+		    			return value;
+		    		}
 		    	}
 		    case Cell.CELL_TYPE_STRING:
 		     return cell.getStringCellValue();
