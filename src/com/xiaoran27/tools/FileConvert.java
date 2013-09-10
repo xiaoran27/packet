@@ -129,6 +129,12 @@ Len：4B离线数据长度：网络中实际数据帧的长度，一般不大于
 *-----------------------------------------------------------------------------*
 * V,xiaoran27,2013-8-9
 *  + final static public byte MTPFLAG_8x
+*-----------------------------------------------------------------------------*
+* V,xiaoran27,2013-9-5
+*  + isTDM  //支持IP码流msu
+*-----------------------------------------------------------------------------*
+* V,xiaoran27,2013-9-6
+*  +  //fixed NullPointerException for isMtpFlag(packet[3])
 \*************************** END OF CHANGE REPORT HISTORY ********************/
 
 
@@ -153,18 +159,6 @@ import com.lj.utils.ISOUtil;
  * SS7的采集文件格式互转
  * 
  * @author xiaoran27
- *
- */
-/**
- * @author 0078
- *
- */
-/**
- * @author 0078
- *
- */
-/**
- * @author 0078
  *
  */
 public class FileConvert {
@@ -207,6 +201,7 @@ public class FileConvert {
 	final static private byte[] FILEHEAD_PCAP_PACKET_HEAD = new byte[FILEHEAD_PCAP_PACKET_HEAD_LENGTH];
 
 	//MTP FLAG
+	final static public byte MTPFLAG_8X = (byte)0x80;  //all
 	final static public byte MTPFLAG_81 = (byte)0x81;  //test
 	final static public byte MTPFLAG_83 = (byte)0x83;  //map
 	final static public byte MTPFLAG_85 = (byte)0x85;  //isup
@@ -251,18 +246,23 @@ public class FileConvert {
 		String src = System.getProperty("srcfile",args.length>1?args[1]:"ss7mtp3.msu");
 		String dst = System.getProperty("dstfile",args.length>2?args[2]:null);
 		
-//		String[] srcfiles={"G://workspace//packet//data//ss7mtp.msu",
-//				"G://workspace//packet//data//zcxc.dat",
-//				"G://workspace//packet//data//smss.dat"};
-//		
-//		int fi = 2;
-////		ctype=fi+"0";
-//		ctype=fi+"1";
-//		src = srcfiles[fi-1];
-//		dst = srcfiles[fi-1]+(ctype.charAt(1)=='1'?".msu":".pcap");
+		/*String[] srcfiles={"G://workspace//packet//data//ss7mtp.msu",
+				"G://workspace//packet//data//zcxc.dat",
+				"G://workspace//packet//data//smss.dat"};
 		
-		ctype = "20";
-		src = "G://workspace//packet//data//bjcdmazcxc//解失败文件//139PPS_0717_215118.dat";
+		int fi = 3;
+		ctype=fi+"0";
+//		ctype=fi+"1";
+		src = srcfiles[fi-1];
+		dst = srcfiles[fi-1]+(ctype.charAt(1)=='1'?".msu":".pcap");*/
+		
+		ctype = "30";
+		src = "G://workspace//packet//data//smss-cmcc.dat";
+//		src = "G://workspace//packet//data//smss-cnet.dat";
+//		src = "G://workspace//packet//data//smss-cu.dat";
+		
+//		ctype = "10";
+//		src = "G://workspace//packet//data//momt.msu";
 		
 		FileConvert fc = new FileConvert();
 		fc.convert(ctype, src, dst);
@@ -311,16 +311,16 @@ public class FileConvert {
 			
 			switch ( ctype.charAt(1)){
 			case '0':
-				_dst = _dst+".pcap";
+				if (!_dst.endsWith(".pcap")) _dst = _dst+".pcap";
 				break;
 			case '1':
-				_dst = _dst+".msu";
+				if (!_dst.endsWith(".msu")) _dst = _dst+".msu";
 				break;
 			case '2':
-				_dst = _dst+".dat";  //zcxc
+				if (!_dst.endsWith(".dat")) _dst = _dst+".dat";  //zcxc
 				break;
 			case '3':
-				_dst = _dst+".dat";  //smss
+				if (!_dst.endsWith(".dat")) _dst = _dst+".dat";  //smss
 				break;
 			}
 			
@@ -435,7 +435,7 @@ public class FileConvert {
             		packetStartPos = pos;
             		
             		//超273的MSU
-            		if (packet.length > MSU_MAX_LENGTH){
+            		if (isMtpFlag(packet[0]) && packet.length > MSU_MAX_LENGTH){
             			System.out.println(count+" file="+src+" IGNORE MSU because too long ="+packet.length);
     		    		System.out.println("MSU start with "+HexFormat.bytes2str(packet, 0, 10, true));
             		}
@@ -514,19 +514,24 @@ public class FileConvert {
 		            pos = pos + FILEHEAD_SMSS_PACKET_HEAD_LENGTH;
 		            packetLen=bigbytes2int(FILEHEAD_SMSS_PACKET_HEAD,8);  //4+1*4+4: code + linkId,portType,reserved,repeatNum + msgLength
             
+		            //fixed NullPointerException for isMtpFlag(packet[3])
+		            packet = new byte[packetLen];  
+		            System.arraycopy(buf, pos, packet, 0, packet.length);
+		            
+            		boolean isTDM = isMtpFlag(packet[3])  ;  //支持IP码流msu
 		            //read a packet
-            		packet = new byte[packetLen - 3];  //MTP3
-            		pos = pos + 3;
+            		packet = new byte[packetLen - (isTDM?3:0) ];  //MTP3
+            		pos = pos + (isTDM?3:0);
             		System.arraycopy(buf, pos, packet, 0, packet.length);
             		pos = pos + packet.length;
             		
-            		byte[] pcapPacket = mtp3msu2pcap(packet, ms);
+            		byte[] pcapPacket = isTDM?mtp3msu2pcap(packet, ms) : bytes2pcap(packet, ms) ;
                 	fileOutputStream.write(pcapPacket);
             		count ++;
             		packetStartPos = pos;
             		
             		//超273的MSU
-            		if (packet.length > MSU_MAX_LENGTH){
+            		if (isTDM && packet.length > MSU_MAX_LENGTH){
             			System.out.println(count+" file="+src+" IGNORE MSU because too long ="+packet.length);
     		    		System.out.println("MSU start with "+HexFormat.bytes2str(packet, 0, 10, true));
             		}
@@ -575,12 +580,13 @@ public class FileConvert {
 		    	}
 		    	
 		    	byte[] packet = str2bytes(line);
-		    	byte[] pcapPacket = mtp3msu2pcap(packet, count);
+		    	boolean isTDM = isMtpFlag(packet[0]) ;
+		    	byte[] pcapPacket = isTDM ? mtp3msu2pcap(packet, count) : bytes2pcap(packet, count); //mtp3msu2pcap(packet, count);
             	fileOutputStream.write(pcapPacket);
             	count ++;
             	
             	//超273的MSU
-        		if (packet.length > MSU_MAX_LENGTH){
+        		if (isTDM && packet.length > MSU_MAX_LENGTH){
         			System.out.println(count+" file="+src+" IGNORE MSU because too long ="+packet.length);
 		    		System.out.println("MSU start with "+HexFormat.bytes2str(packet, 0, 10, true));
         		}
@@ -761,21 +767,26 @@ public class FileConvert {
                         	packetStartPos = packetStartPos + FILEHEAD_ZCXC_PACKET_HEAD_skip2MTP3DiffLen;  
                         	packet = new byte[pos - packetStartPos];
                         	System.arraycopy(buf, packetStartPos, packet, 0, packet.length);
-                        	if (isMtpFlag(packet[0])){
+                        	boolean isTDM = isMtpFlag(packet[0]);
+                        	if (isTDM){
                         		bw.write(bytes2str(packet,true));
                         		bw.write("\r\n");
                             	count ++;
                         	}else{
+                        		bw.write(bytes2str(packet,true));  //非TDM包
+                        		bw.write("\r\n");
+                            	count ++;
+                            	
                         		System.out.println(src+" NOT MTP3 PACKET.(ERR:-102)");
                         		System.out.println(ISOUtil.hexdump(packet));
-                        		
-                        		fileInputStream.close();  
-                                bw.close(); 
-                            	return -102;
+//                        		
+//                        		fileInputStream.close();  
+//                                bw.close(); 
+//                            	return -102;
                         	}
                         	
                         	//超273的MSU
-                    		if (packet.length > MSU_MAX_LENGTH){
+                    		if (isTDM && packet.length > MSU_MAX_LENGTH){
                     			System.out.println(count+" file="+src+" IGNORE MSU because too long ="+packet.length);
             		    		System.out.println("MSU start with "+HexFormat.bytes2str(packet, 0, 10, true));
                     		}
@@ -815,7 +826,7 @@ public class FileConvert {
                 	count ++;
                 	
                 	//超273的MSU
-            		if (packet.length > MSU_MAX_LENGTH){
+            		if (isMtpFlag(packet[0]) && packet.length > MSU_MAX_LENGTH){
             			System.out.println(count+" file="+src+" IGNORE MSU because too long ="+packet.length);
     		    		System.out.println("MSU start with "+HexFormat.bytes2str(packet, 0, 10, true));
             		}
@@ -954,21 +965,26 @@ public class FileConvert {
                         	packetStartPos = packetStartPos + FILEHEAD_ZCXC_PACKET_HEAD_skip2MTP3DiffLen;  
                         	packet = new byte[pos - packetStartPos];
                         	System.arraycopy(buf, packetStartPos, packet, 0, packet.length);
-                        	if (isMtpFlag(packet[0])){
+                        	boolean isTDM = isMtpFlag(packet[0]);
+                        	if (isTDM){
                         		byte[] pcapPacket = mtp3msu2pcap(packet, ms);
                             	fileOutputStream.write(pcapPacket);
                             	count ++;
                         	}else{
+                        		byte[] pcapPacket = mtp3msu2pcap(packet, ms);
+                            	fileOutputStream.write(pcapPacket);
+                            	count ++;
+                            	
                         		System.out.println(src+" NOT MTP3 PACKET.(ERR:-102)");
                         		System.out.println(ISOUtil.hexdump(packet));
                         		
-                        		fileInputStream.close();  
-                                fileOutputStream.close(); 
-                            	return -102;
+//                        		fileInputStream.close();  
+//                                fileOutputStream.close(); 
+//                            	return -102;
                         	}
                         	
                         	//超273的MSU
-                    		if (packet.length > MSU_MAX_LENGTH){
+                    		if (isTDM && packet.length > MSU_MAX_LENGTH){
                     			System.out.println(count+" file="+src+" IGNORE MSU because too long ="+packet.length);
             		    		System.out.println("MSU start with "+HexFormat.bytes2str(packet, 0, 10, true));
                     		}
@@ -1008,7 +1024,7 @@ public class FileConvert {
                 	count ++;
                 	
                 	//超273的MSU
-            		if (packet.length > MSU_MAX_LENGTH){
+            		if (isMtpFlag(pcapPacket[0]) && packet.length > MSU_MAX_LENGTH){
             			System.out.println(count+" file="+src+" IGNORE MSU because too long ="+packet.length);
     		    		System.out.println("MSU start with "+HexFormat.bytes2str(packet, 0, 10, true));
             		}
@@ -1067,7 +1083,11 @@ public class FileConvert {
 	
 	//判断是否是MTP的FLAG值
 	static public boolean isMtpFlag(byte b){
-		return  MTPFLAG_81 == b || MTPFLAG_83 == b || MTPFLAG_85 == b ;
+		return  (MTPFLAG_8X == (b&MTPFLAG_8X) ) || MTPFLAG_81 == b || MTPFLAG_83 == b || MTPFLAG_85 == b ;
+	}
+	
+	public byte[] bytes2pcap(final byte[] bytes, int ms ) {
+		return mtp3msu2pcap(bytes, ms );
 	}
 	
 	/**
