@@ -135,6 +135,9 @@ Len：4B离线数据长度：网络中实际数据帧的长度，一般不大于
 *-----------------------------------------------------------------------------*
 * V,xiaoran27,2013-9-6
 *  +  //fixed NullPointerException for isMtpFlag(packet[3])
+*-----------------------------------------------------------------------------*
+* V,xiaoran27,2013-9-27
+*  M  //修改后生成pcap可能不被wireshark识别
 \*************************** END OF CHANGE REPORT HISTORY ********************/
 
 
@@ -194,9 +197,9 @@ public class FileConvert {
 	
 	//PCAP
 	final static private byte[] FILEHEAD_PCAP_FLAG = {(byte) 0XD4, (byte) 0XC3, (byte) 0XB2, (byte) 0XA1, 0X02, 0X00, 0X04, 0X00, 0X00, 0X00, 0X00, 0X00, 0X00, 0X00, 0X00, 0X00
-		, 0X00, (byte) 0X90, 0X01, 0X00, (byte) 0X8D, 0X00, 0X00, 0X00};
+		, 0X00, (byte) 0X90, 0X01, 0X00, (byte) 0X8D, 0X00, 0X00, 0X00};  //修改后生成pcap可能不被wireshark识别
 	final static public int FILEHEAD_PCAP_LENGTH = 4+2*2+4+4+4+4; //Magic + Major,Minor + ThisZone + SigFigs + SnapLen + LinkType
-	final static private byte[] FILEHEAD_PCAP = FILEHEAD_PCAP_FLAG;
+	final static private byte[] FILEHEAD_PCAP = new byte[FILEHEAD_PCAP_LENGTH];
 	final static public int FILEHEAD_PCAP_PACKET_HEAD_LENGTH = 4*4; //timestampSec,timestampMs,caplen,len
 	final static private byte[] FILEHEAD_PCAP_PACKET_HEAD = new byte[FILEHEAD_PCAP_PACKET_HEAD_LENGTH];
 
@@ -256,8 +259,8 @@ public class FileConvert {
 		src = srcfiles[fi-1];
 		dst = srcfiles[fi-1]+(ctype.charAt(1)=='1'?".msu":".pcap");*/
 		
-		ctype = "30";
-		src = "G://workspace//packet//data//smss-cmcc.dat";
+//		ctype = "30";
+//		src = "G://workspace//packet//data//smss-cmcc.dat";
 //		src = "G://workspace//packet//data//smss-cnet.dat";
 //		src = "G://workspace//packet//data//smss-cu.dat";
 		
@@ -326,19 +329,36 @@ public class FileConvert {
 			
 			int count = 0;
 			long old = System.currentTimeMillis();
-			if (10==type){
+			switch (type){
+			//X0
+			case 00:
+				break;
+			case 10:
 				count = msu2pcap(_src,_dst);
-			}else if (20==type){
-//				count = zcxcDat2pcapDirect(_src,_dst);
+				break;
+			case 20:
 				count = zcxcDat2pcap(_src,_dst);
-			}else if (30==type){
+				break;
+			case 30:
 				count = smssDat2pcapDirect(_src,_dst);
-			}else if (21==type){
+				break;
+				
+			//X1
+			case 01:
+				count = pcap2msu(_src,_dst);
+				break;
+			case 11:
+				break;
+			case 21:
 				count = zcxcDat2msu(_src,_dst);
-			}else if (31==type){
+				break;
+			case 31:
 				count = smssDat2msu(_src,_dst);
-			}else{
+				break;
+			
+			default:
 				System.out.println("UNSUPPORT "+ctypeMap.get(type));
+				break;
 			}
 			
 			if (count != 0){
@@ -552,7 +572,74 @@ public class FileConvert {
 		return  count;
 	}
 	
-	
+	public int pcap2msu(final String src, final String dst) {
+		int count = 0;
+		
+		long old = System.currentTimeMillis();
+		System.out.println(count+" file="+src+" - established MS="+(System.currentTimeMillis()-old)+"; START AT "+new Date());
+		try {  
+            // 源文件  
+            FileInputStream fileInputStream = new FileInputStream(new File(src));  
+            BufferedWriter bw = new BufferedWriter(new FileWriter(new File(dst)));
+  
+            //read head and CHECK HEAD FLAG
+            Arrays.fill(FILEHEAD_PCAP, (byte)0);
+            fileInputStream.read(FILEHEAD_PCAP);
+            byte[] _FILEHEAD_PCAP_FLAG = new byte[FILEHEAD_PCAP_FLAG.length];
+            Arrays.fill(_FILEHEAD_PCAP_FLAG, (byte)0);
+            System.arraycopy(FILEHEAD_PCAP, 0, _FILEHEAD_PCAP_FLAG, 0, 4);  //d4c3b2a1
+            if (!Arrays.equals(_FILEHEAD_PCAP_FLAG, FILEHEAD_PCAP_FLAG)){
+            	fileInputStream.close(); 
+            	System.out.println(src+" isn't PCAP format file.(ERR:-100)");  
+            	return -100;
+            }
+            
+            //暂不考虑pcap有问题
+        	while(fileInputStream.available()>0){
+        		
+        		//read packet head(4*4//timestampSec,timestampMs,caplen,len)
+                Arrays.fill(FILEHEAD_PCAP_PACKET_HEAD, (byte)0);
+                fileInputStream.read(FILEHEAD_PCAP_PACKET_HEAD);
+                int packetLen = bigbytes2int(FILEHEAD_PCAP_PACKET_HEAD,FILEHEAD_PCAP_PACKET_HEAD_LENGTH - 4);
+                
+                //read packet
+                byte[] packet = new byte[packetLen];
+                fileInputStream.read(packet);
+                
+                //write MSU
+            	boolean isTDM = isMtpFlag(packet[0]) || isMtpFlag(packet[3]) || isMtpFlag(packet[6]);
+            	if (isTDM){
+            		bw.write(bytes2str(packet,true));
+            		bw.write("\r\n");
+                	count ++;
+            	}else{
+            		bw.write(bytes2str(packet,true));  //非TDM包
+            		bw.write("\r\n");
+                	count ++;
+                	
+            		System.out.println(src+" NOT MTP3 PACKET.(ERR:-102)");
+            		System.out.println(ISOUtil.hexdump(packet));
+            	}
+            	
+            	//超273的MSU
+        		if (isTDM && packet.length > MSU_MAX_LENGTH){
+        			System.out.println(count+" file="+src+" IGNORE MSU because too long ="+packet.length);
+		    		System.out.println("MSU start with "+HexFormat.bytes2str(packet, 0, 10, true));
+        		}
+                    	
+        	} 
+            	
+            // 关闭流  
+            fileInputStream.close();  
+            bw.close();  
+            
+        } catch (Exception e) {  
+            e.printStackTrace();  
+        } 
+		System.out.println(count+" file="+src+" - established MS="+(System.currentTimeMillis()-old)+"; FINISHED AT "+new Date()); 
+		
+		return  count;
+	}
 	
 	/**
 	 * hex的MSU数据文件(每行一个MTP3MSU<0x83开始>)转为pcap文件.
