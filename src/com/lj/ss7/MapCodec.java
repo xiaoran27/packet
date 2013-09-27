@@ -25,6 +25,13 @@
 *-----------------------------------------------------------------------------*
 * V,xiaoran27,2013-8-16
 * + implement encodecMtFsm(...)
+*-----------------------------------------------------------------------------*
+* V,xiaoran27,2013-8-20
+* + //计算文件的行数，作为发送速率
+*-----------------------------------------------------------------------------*
+* V,xiaoran27,2013-9-25/27
+* M //防止step<1
+* +M encodecMxFsm(...)  //支持mo-deliver 
 \*************************** END OF CHANGE REPORT HISTORY ********************/
 package com.lj.ss7;
 
@@ -75,7 +82,8 @@ public class MapCodec {
    * USAGE
    */
   public void usage() {
-    System.out.println("Usage: java -DmsuSpeed=10 -DmsuHours=2 -DmsuOverload=2 -cp packet.jar com.lj.ss7.MapCodec srcfile [dstfile]");
+    System.out.println("Usage: java -DmoDeliver=1 -DmsuSpeed=10 -DmsuHours=2 -DmsuOverload=2 -cp packet.jar com.lj.ss7.MapCodec srcfile [dstfile]");
+    System.out.println("\t-DmoDeliver={MO_DELIVER} OPTION, MO FOR DELIVER(1) OR SUBMIT(0), def: 1");
     System.out.println("\t-DmsuSpeed={MSU_SPEED} OPTION, speed(=lines) , def: 10");
 	System.out.println("\t-DmsuHours={MSU_HOURS} OPTION, time(=max time): hour, def: 2");
 	System.out.println("\t-DmsuOverload={MSU_OVERLOAD} OPTION, more msu, def: 2");
@@ -84,7 +92,7 @@ public class MapCodec {
     System.out.println();
     System.out.println("\tNotes:");
     System.out.println("\t1. CSV file format:");
-    System.out.println("\t\ttitle: momt,dpc,opc,cdSmsc,cgGt,sender,receiver,content,rate");
+    System.out.println("\t\ttitle: momt,dpc,opc,cd,cg,sender,receiver,content,rate");
     System.out.println("\t\tdemo1: mo,0x010203,0x030201,8613800210500,8613743168,8613901988686,8613788992292,\"SMS content\",5/30s");
     System.out.println("\t\tdemo2: mt,0x010203,0x030201,8613800210500,8613743168,8613901988686,8613788992292,\"短信内容\",50/10m");
     System.out.println("\t\tdemo3: mo,0x010203,0x030201,8613800210500,8613743168,8613901988686,8613788992292,\"SMS content|短信内容\",500/1h");
@@ -102,9 +110,21 @@ public class MapCodec {
    * @return  个数
    */
   public int encodecMoMtFsm(String csvfile, String msuFile) {
+	  
+	  //计算文件的行数，作为发送速率
+	  int lineCnt = 0;
+	  try {
+	        BufferedReader br = new BufferedReader(new FileReader(new File(csvfile)));
+	        while (null != br.readLine()) {
+	      	  lineCnt ++;
+	        }
+	        br.close();
+	    }catch (Exception e){}
 	
+	  
+	final int MO_DELIVER = Integer.parseInt(System.getProperty("moDeliver", "1"));  //1-DELIVER,0-SUBMIT
 	final int MSU_OVERLOAD = Integer.parseInt(System.getProperty("msuOverload", "2"));  //多发MSU的个数
-	final int MSU_SPEED = Integer.parseInt(System.getProperty("msuSpeed", "10"));  //一般是文件中的行数
+	final int MSU_SPEED = Math.max((lineCnt+9)/10*10,Integer.parseInt(System.getProperty("msuSpeed", "10")));  //一般是文件中的行数
 	final int MSU_STORE_HOURS = Integer.parseInt(System.getProperty("msuHours", "2"));  //2h，一般是rate的最大时长
 	final int MSU_MAX_SIZE = MSU_SPEED*60*60*MSU_STORE_HOURS;  //speed*hours
 	
@@ -119,6 +139,7 @@ public class MapCodec {
     try {
       BufferedReader br = new BufferedReader(new FileReader(new File(csvfile)));
       BufferedWriter bw = new BufferedWriter(new FileWriter(new File(msuFile)));
+      
 
       String line = br.readLine();
       if (line.startsWith("momt,")){  //skip title
@@ -138,7 +159,11 @@ public class MapCodec {
         	
         	byte[] msu = null;
         	if ("mo".equalsIgnoreCase(data[0])){
-	          msu = encodecMoFsm(dpc,opc,data[3],data[4],data[6],data[5],data[7].length()<1?"no content":data[7]);
+        	  if (MO_DELIVER == 1){
+        		  msu = encodecMoFsm(dpc,opc,data[3],data[4],"8613800210500", data[6],data[5],data[7].length()<1?"no content":data[7]);
+        	  }else{
+        		  msu = encodecMoFsm(dpc,opc,data[3],data[4],data[6],data[5],data[7].length()<1?"no content":data[7]);
+        	  }
         	}else{
         	  msu = encodecMtFsm(dpc,opc,data[3],data[4],data[6],data[5],data[7].length()<1?"no content":data[7]);
         	}
@@ -164,6 +189,7 @@ public class MapCodec {
 	        		_msuTime = Integer.parseInt(rates[1].substring(0,rates[1].length())) * 1;
 	        	} 
 	        	int step = MSU_SPEED * (_msuTime/_msuCnt);
+	        	step = step <1 ? 1 : step;  //防止step<1
 	        	
 	        	//save to  array
 	        	int nvlPosForStep = nullPosForLine; //每个msu可存放的位置
@@ -172,7 +198,7 @@ public class MapCodec {
 		        	for (; j<nvlPosForStep+(i+1)*step; j++){
 		        		if (j >= MSU_MAX_SIZE){  //防止越界
 		        			System.out.println(MSU_MAX_SIZE+" line="+line);  
-		        			System.out.println(count+" lines j="+j+"; nvlPosForStep="+nvlPosForStep+"; i="+i+";step="+step);
+		        			System.out.println(count+" lines<DISCARD> j="+j+"; nvlPosForStep="+nvlPosForStep+"; i="+i+";step="+step);
 		        			break;
 		        		}
 		        		
@@ -220,8 +246,11 @@ public class MapCodec {
 
     System.out.println(count + " lines is converted from "+csvfile+" to "+msuFile+"; established MS=" + (System.currentTimeMillis() - old) + "; FINISHED AT " + new Date());
 
-    System.out.println("Please set jvm -DmsuSpeed="+(count+10)/10*10+" if you see 'CONFLICT(NO NULL POS)...'"); 
-    
+    if ((count+9)/10*10 != MSU_SPEED){
+    	System.out.println("Please set jvm -DmsuSpeed="+(count+10)/10*10+" if you see 'CONFLICT(NO NULL POS)... '. current msuSpeed="+MSU_SPEED); 
+    }else{
+    	System.out.println("current msuSpeed="+MSU_SPEED);
+    }
     return count;
   }
   
@@ -238,7 +267,21 @@ public class MapCodec {
   }
   
   /**
-   * 构造MT消息.
+   * 构造MT消息(sms-deliver).
+   */
+  public byte[] encodecMtFsm(int dpc, int opc, String cd, String cg, String smsc, String receiver, String sender, String content) {
+	    return encodecMxFsm(true, dpc,  opc,  cd,  cg,  smsc,  receiver,  sender,  content);
+  }
+  
+  /**
+   * 构造MO消息(sms-deliver).
+   */
+  public byte[] encodecMoFsm(int dpc, int opc, String cd, String cg, String smsc, String receiver, String sender, String content) {
+	    return encodecMxFsm(false, dpc,  opc,  cd,  cg,  smsc,  receiver,  sender,  content);
+  }
+  
+  /**
+   * 构造Mx消息(sms-deliver).
    *
   * @param dpc
   * @param opc
@@ -250,7 +293,7 @@ public class MapCodec {
   * @param content - short message content
   * @return MSU码流
   */
-  public byte[] encodecMtFsm(int dpc, int opc, String cd, String cg, String smsc, String receiver, String sender, String content) {
+  public byte[] encodecMxFsm(boolean mt, int dpc, int opc, String cd, String cg, String smsc, String receiver, String sender, String content) {
 	    byte[] msu = new byte[276];
 	    int pos = 0;
 
@@ -417,7 +460,7 @@ public class MapCodec {
 	    //fill op code
 	    msu[pos++] = (byte) 0x02;
 	    msu[pos++] = (byte) 0x01;
-	    msu[pos++] = (byte) 0x2c; //P44_MT
+	    msu[pos++] = mt?(byte) 0x2c : (byte) 0x2e; //P44_MT(0x2c),P46_MO(0x2e)
 
 	    //fill sequence
 	    msu[pos++] = (byte) 0x30;
@@ -463,7 +506,7 @@ public class MapCodec {
 	  }
 
   /**
-   * 构造MO消息.
+   * 构造MO消息(SMS-SUBMIT).
    *
   * @param dpc
   * @param opc
