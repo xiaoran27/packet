@@ -29,9 +29,12 @@
 * V,xiaoran27,2013-8-20
 * + //计算文件的行数，作为发送速率
 *-----------------------------------------------------------------------------*
-* V,xiaoran27,2013-9-25/27
+* V,xiaoran27,2013-9-25/27/30
 * M //防止step<1
 * +M encodecMxFsm(...)  //支持mo-deliver 
+* M //仅data[7]有QUOTE
+* M //data[8]不存在
+* M //SMS's len: isChinese?字节数:字符数
 \*************************** END OF CHANGE REPORT HISTORY ********************/
 package com.lj.ss7;
 
@@ -41,6 +44,8 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.util.Date;
+
+import org.ajwcc.pduUtils.gsm3040.PduUtils;
 
 import com.lj.utils.ISOUtil;
 import com.xiaoran27.tools.HexFormat;
@@ -53,6 +58,7 @@ import com.xiaoran27.tools.HexFormat;
  * @version $Revision$
   */
 public class MapCodec {
+	
   /**
    * @param args
    */
@@ -140,11 +146,11 @@ public class MapCodec {
       BufferedReader br = new BufferedReader(new FileReader(new File(csvfile)));
       BufferedWriter bw = new BufferedWriter(new FileWriter(new File(msuFile)));
       
-
       String line = br.readLine();
       if (line.startsWith("momt,")){  //skip title
     	  line = br.readLine();
       }
+      
       while (null != line) {
         if ((line.trim().length() < 1) || line.startsWith("--") || line.startsWith("#")) { //--，#作为注释行
           line = br.readLine();
@@ -152,8 +158,37 @@ public class MapCodec {
           continue;
         }
 
-        String[] data = line.split(",");
-        if (data.length >= 8) {  //momt,dpc,opc,cdSmsc,cgGt,sender,receiver,content,rate
+        String[] data = line.split(",");//momt,dpc,opc,cdSmsc,cgGt,sender,receiver,content,rate
+        if (data.length >= 8) { //content(=data[8])里面可能有','且用'"'做QUOTE
+        	
+        	if (data[7].startsWith("\"")) {
+        		data[7] = data[7].substring(1); 
+        	}
+        	
+        	boolean rateIsLastest = data[data.length-1].matches("[0-9]+/[0-9]+[sShHmM]");
+        	int contentEndPos = data.length - ( rateIsLastest ? 2 : 1);
+        	StringBuffer sb = new StringBuffer();
+        	for (int i=8; i <= contentEndPos; i++){
+        		sb.append(',');
+        		if ( i != contentEndPos ){
+        			sb.append(data[i]);
+        		}else{
+        			if (data[i].endsWith("\"")){
+        				sb.append(data[i].substring(0,data[i].length()-1)); 
+        			}
+        		}
+        	}
+        	
+        	if (contentEndPos <= 7  && data[7].endsWith("\"")) {  //仅data[7]有QUOTE
+        		data[7] = data[7].substring(0,data[7].length()-1); 
+        	}
+        	
+        	data[7] = data[7] + sb.toString();  //content
+        	if (data.length>8){ //data[8]不存在
+        		data[8] = rateIsLastest ? data[data.length-1] : null; //rate
+        	}
+        }
+        if (data.length >= 8) {  
         	int dpc=Integer.parseInt(data[1].substring(2),16);
         	int opc=Integer.parseInt(data[2].substring(2),16);
         	
@@ -174,7 +209,7 @@ public class MapCodec {
 	        	count ++;
 	        	
         		//计算设置的发送频率
-	        	String rate = data[8];  //支持rate的设置
+	        	String rate = data.length>8 ? data[8] : null;  //支持rate的设置,//data[8]不存在
 	        	String[] rates = (rate==null?"1/1h":rate).split("/");
 	        	char rflag = rates[1].charAt(rates[1].length()-1);
 	        	int _msuCnt = Integer.parseInt(rates[0])+MSU_OVERLOAD;
@@ -408,10 +443,11 @@ public class MapCodec {
 	    int zq_pos_sccp = pos; //keep sccp length position   
 	    
 	    //short message content
-	    byte[] _content = content.getBytes();
+	    boolean isChinese = ISOUtil.isChinese(content);
+	    byte[] _content = isChinese ? PduUtils.encodeUcs2UserData(content) : PduUtils.unencodedSeptetsToEncodedSeptets(PduUtils.stringToUnencodedSeptets(content)) ;
 	    byte[] ZQ_UI = new byte[10 + _content.length];
 	    ZQ_UI[0] = 0x00;
-	    ZQ_UI[1] = (byte) (ISOUtil.isChinese(content) ? 0x08 : 0x00); //0x00-7bit, 0x08-UCS2(16bit)
+	    ZQ_UI[1] = (byte) ( isChinese ? 0x08 : 0x00); //0x00-7bit, 0x04-8bit, 0x08-UCS2(16bit)
 	    ZQ_UI[2] = 0x21;//YY-12
 	    ZQ_UI[3] = (byte) 0x80;//MM-08
 	    ZQ_UI[4] = 0x61;//DD-16
@@ -419,7 +455,7 @@ public class MapCodec {
 	    ZQ_UI[6] = 0x10;//MM-01
 	    ZQ_UI[7] = 0x30;//SS-30
 	    ZQ_UI[8] = 0x23;//ZONE GTM+8
-	    ZQ_UI[9] = (byte) _content.length; //SMS's len
+	    ZQ_UI[9] = (byte) (isChinese ? _content.length : content.length()); //SMS's len: isChinese?字节数:字符数
 	    System.arraycopy(_content, 0, ZQ_UI, 10, _content.length);
 
 	    //short format
@@ -708,4 +744,5 @@ public class MapCodec {
 
     return _msu;
   }
+  
 }
