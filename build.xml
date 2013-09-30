@@ -6,6 +6,26 @@
 
 	<property file="version.properties" />
 	<property file="build.properties" />
+	
+
+    <!-- Create jar package -->
+    <target name="packet.jar"  description="Create package.">
+        <jar jarfile="${basedir}/${lib.dir}/${build.jar}" >
+        	<fileset dir="${basedir}/${build.dir}">
+                <include name="**/*" />
+                <include name="*.class" />
+        		<include name="ImportExcelToModel.xml" />
+                <exclude name="log/**/*" />
+        		<exclude name="data/**/*" />
+                <exclude name="*" />
+            </fileset>
+            <manifest>
+                <attribute name="Main-Class" value="com.lj.Main" />
+                <attribute name="Class-Path" value=". lib/pduutils.jar " />
+            </manifest>
+            <zipfileset dir="${basedir}" includes="${lib.dir}/pduutils.jar" />
+        </jar>
+    </target>
 
 	<!-- ============================================================= -->
 	<!-- Prepare the build directory                                   -->
