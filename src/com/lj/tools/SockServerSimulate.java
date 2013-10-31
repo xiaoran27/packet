@@ -17,6 +17,15 @@
 *-----------------------------------------------------------------------------*
 * V,xiaoran27,2013-8-19
 *  + //生成msu后启动独立线程发送
+*-----------------------------------------------------------------------------*
+* V,xiaoran27,2013-8-20
+*  +//仅需延时或每发送100个msg后读一次
+*-----------------------------------------------------------------------------*
+* V,xiaoran27,2013-8-22
+*  +//每秒发送条数完成且耗时不到一秒需sleep
+*-----------------------------------------------------------------------------*
+* V,xiaoran27,2013-9-9
+*  M //key is IP
 \*************************** END OF CHANGE REPORT HISTORY ********************/
 
 
@@ -57,6 +66,8 @@ public class SockServerSimulate {
 	
 	@Setter @Getter private boolean isMsudCsp = true;  //是否是msudcsp的接口
 	
+	@Setter @Getter private boolean msuSpeedByFile = true;  //是否使用
+	
 	@Setter @Getter private int rate = 100;
 	@Setter @Getter private int inteval = 1000/rate - 1;
 	@Setter @Getter private int time = 0;  //秒: <0 - total ; 0-loop
@@ -87,7 +98,7 @@ public class SockServerSimulate {
 			sockServerSimulate.setRate(rate);
 			int time = Integer.parseInt(System.getProperty("time", "0"));
 			int inteval = Integer.parseInt(System.getProperty("inteval", "100"));
-			inteval = 1000/rate - 1;
+			inteval = rate >=1000? 0:1000/rate - 1;
 			sockServerSimulate.setInteval(inteval);
 			sockServerSimulate.setTime(time);
 			
@@ -103,15 +114,18 @@ public class SockServerSimulate {
 
 	public void usage(){
 		//-Dip=127.0.0.1 -Dport=80  -Dnum=1 -Dfilename=momt.msu -DrspFilename=rsp.txt -Drate=10 -Dtime=0 -Dinteval=100
-		System.out.println("Usage: java -Dport=10308 -Dfilename=momt.msu -Ddpc=0x010203 -Ddpc=0x030201 -Dthreads=1 -Drate=10 -Dtime=0 -Dinteval=100 -cp packet.jar com.lj.tools.SockServerSimulate ");
+		System.out.println("Usage: java -Dport=10308 -Dfilename=momt.msu -Ddpc=0x010203 -Dopc=0x030201 -Dthreads=1 -Drate=10 -Dtime=0 -Dinteval=100 -cp packet.jar com.lj.tools.SockServerSimulate ");
 		System.out.println("\t-Dport={SERVER_PORT} listening PORT, def: 10308");
 		System.out.println("\t-Dfilename={MSU_FILE} MSU file or path, def: momt.msu");
 		System.out.println("\t-Ddpc={DPC} HEX string.");
 		System.out.println("\t-Dopc={OPC} HEX string.");
 		System.out.println("\t-Dthreads={THREAD_NUM}  num threads,def: 1");
-		System.out.println("\t-Drate={RATE}  count of a second, def: 100");
+		System.out.println("\t-Drate={RATE}  count of a second ( limit by MSU file's first line), def: 100");
 		System.out.println("\t-Dtime={RUN_TIME} milliseconds, 0 is unlimit, def: 0");
 		System.out.println("\t-Dinteval={SLEEP_TIME} <unused> milliseconds, def: 100");
+		
+		System.out.println("\t-DTxIP={IP} <unused> special IP list by ';' for TX");
+		System.out.println("\t-DRxIP={IP} <unused> special IP list by ';' for RX");
 		System.out.println();
 	}
 
@@ -132,12 +146,27 @@ public class SockServerSimulate {
 				System.out.println("conneted by " + newSocket+ " AT " + new Date());
 				newSocket.setSoTimeout(inteval<1?1:inteval);  //防止读阻塞
 				
+				/*//for test speed
+				int count = 0;
+				System.out.println(count+", "+System.currentTimeMillis());
+				while (true){
+					newSocket.getOutputStream().write(new byte[100]);
+					count ++;
+					if (count %1000==0){
+						System.out.println(count+", "+System.currentTimeMillis());
+					}
+					if (count>1000000){
+						break;
+					}
+				}*/
+				
 //		        filename = "G://workspace//packet//data//bjcdmazcxc//解失败文件//139PPS_0712_194958.dat.pcap";
 
 //				sendMsu(newSocket);
 				
 				//生成msu后启动独立线程发送
-				genMsu(newSocket.toString()) ;
+				
+				genMsu(newSocket.getRemoteSocketAddress().toString()) ;  //key is IP
 				class _SockClientHandle extends Thread {  
 					private Socket sock = null;
 			        _SockClientHandle(Socket sock){
@@ -151,11 +180,15 @@ public class SockServerSimulate {
 							InputStream streamFromServer = sock.getInputStream();
 							  OutputStream streamToServer = sock.getOutputStream();
 							  
-							  List<byte[]> msuList = threadMsuMap.get(sock.toString());
+							  List<byte[]> msuList = threadMsuMap.get(sock.getRemoteSocketAddress().toString());  //key is IP
 							  long __old = System.currentTimeMillis();
+							  long _rateOld = System.currentTimeMillis();
+							  int _rate = rate;
 							  for(int i=0; i<msuList.size(); i++){
+								  long _old = System.currentTimeMillis();
 								  streamToServer.write(msuList.get(i));
 								  count ++;
+								  _rate --;
 								  
 								  if (time >= 0 ){
 								   if (time > 0 && (System.currentTimeMillis() - __old) >= time*1000  ){
@@ -168,12 +201,23 @@ public class SockServerSimulate {
 								  }
 								  
 								  //rate
-								  long _old = System.currentTimeMillis();
-								  readAndSleep(streamFromServer, _old );
+								  if (inteval>0 || count%rate==0){ //仅需延时或每发送100个msg后读一次
+									  readAndSleep(streamFromServer, _old );
+								  }
 								  
-								  if (count%1000==0){
+								  if (count%(rate*10)==0){
 							    	System.out.println(sock.toString()+" - "+count+" is sending at " + new Date());
 							      }
+								  
+								  //每秒发送条数完成且耗时不到一秒需sleep
+								  if (_rate == 0 && System.currentTimeMillis() - _rateOld < 1000){
+									 try {
+										Thread.currentThread().sleep(1000 - (System.currentTimeMillis() - _rateOld));
+									} catch (InterruptedException e) {
+									}
+									 _rateOld = System.currentTimeMillis();
+									 _rate = rate;
+								  }
 							  }
 						} catch (Exception e) {
 							e.printStackTrace();
@@ -308,6 +352,13 @@ public class SockServerSimulate {
 	        
 		    while (null!=line){
 		    	if (line.trim().length()<1 || line.startsWith("--")|| line.startsWith("#")) {  //--，#作为注释行
+		    		//"-- send msu speed is NUM"
+		    		if ( msuSpeedByFile && line.indexOf("speed")>0){
+		    			String[] _values = line.split("[ ,;=]");
+		    			rate = Integer.parseInt(_values[_values.length-1]);
+		    			inteval = rate >=1000? 0:1000/rate - 1;
+		    		}
+		    		
 		    		line = br.readLine();
 		    		continue;
 		    	}
@@ -322,15 +373,23 @@ public class SockServerSimulate {
 		    	long _old = System.currentTimeMillis();
 		    	
 		    	//change OPC=0x010203 & DPC=0x030201
-		    	//line="83 03 02 01 01 02 03 ..."
+		    	//line="8X 03 02 01 01 02 03 ..."
+		    	/*
 		    	String _dpc = dpc.substring(6,8)+" "+dpc.substring(4,6)+" "+dpc.substring(2,4);
 		    	String _opc = opc.substring(6,8)+" "+opc.substring(4,6)+" "+opc.substring(2,4);
 		    	line = line.trim();
 		    	line = line.substring(0,3)+_dpc+" "+_opc+line.substring(20);
+		    	*/
+		    	
+		    	//去space并换DPC,OPC(仅8X的码流)
+		    	line = line.replaceAll(" ", "");
+		    	if (line.charAt(0)=='8'){ //可能会有误判,暂忽略
+		    		line = line.substring(0,2)+dpc.substring(6,8)+dpc.substring(4,6)+dpc.substring(2,4)+opc.substring(6,8)+opc.substring(4,6)+opc.substring(2,4)+line.substring(14);
+		    	}
 		    	
 		    	byte[] msu = HexFormat.str2bytes(line);
 		    	//MSU超长丢弃
-		    	if (msu.length > FileConvert.MSU_MAX_LENGTH){
+		    	if (line.charAt(0)=='8' && msu.length > FileConvert.MSU_MAX_LENGTH){
 		    		System.out.println(_count+"; file="+f+" start at " + new Date());
 		    		System.out.println("IGNORE MSU because too long ="+msu.length);
 		    		System.out.println("MSU start with "+HexFormat.bytes2str(msu, 0, 10, true));
@@ -354,7 +413,7 @@ public class SockServerSimulate {
 	    		_count ++;
 		    	
 		        if (_count%1000==0){
-		        	System.out.println(_count+"; file="+f+" is starting at " + new Date());
+		        	System.out.println(_count+"; file="+f+" is reading at " + new Date());
 		        }
 		    	
 		        line = br.readLine();
@@ -362,11 +421,11 @@ public class SockServerSimulate {
 		    br.close();
 		    count = count + _count;
 		    
-		    System.out.println(_count+"; file="+f+" is finished at " + new Date());
+		    System.out.println(count+"; file="+f+" is finished at " + new Date());
         }
         
-        System.out.println("Total: at " + new Date());
-        System.out.println("count=" + count + "; files: "+Arrays.toString(datafiles));
+        System.out.println("Total: "+count+"at " + new Date());
+        System.out.println("files: "+Arrays.toString(datafiles));
 		
 //		return count;
 		return msuList;
@@ -403,6 +462,14 @@ public class SockServerSimulate {
 	        
 		    while (null!=line){
 		    	if (line.trim().length()<1 || line.startsWith("--")|| line.startsWith("#")) {  //--，#作为注释行
+		    		//"-- send msu speed is NUM"
+		    		if ( msuSpeedByFile && line.indexOf("speed")>0){
+		    			String[] _values = line.split("[ ,;=]");
+		    			rate = Integer.parseInt(_values[_values.length-1]);
+		    			inteval = rate >=1000? 0:1000/rate - 1;
+		    			socket.setSoTimeout(inteval);
+		    		}
+		    		
 		    		line = br.readLine();
 		    		continue;
 		    	}
@@ -418,14 +485,22 @@ public class SockServerSimulate {
 		    	
 		    	//change OPC=0x010203 & DPC=0x030201
 		    	//line="83 03 02 01 01 02 03 ..."
+		    	/*
 		    	String _dpc = dpc.substring(6,8)+" "+dpc.substring(4,6)+" "+dpc.substring(2,4);
 		    	String _opc = opc.substring(6,8)+" "+opc.substring(4,6)+" "+opc.substring(2,4);
 		    	line = line.trim();
 		    	line = line.substring(0,3)+_dpc+" "+_opc+line.substring(20);
+		    	*/
+
+		    	//去space并换DPC,OPC(仅8X的码流)
+		    	line = line.replaceAll(" ", "");
+		    	if (line.charAt(0)=='8'){ //可能会有误判,暂忽略
+		    		line = line.substring(0,2)+dpc.substring(6,8)+dpc.substring(4,6)+dpc.substring(2,4)+opc.substring(6,8)+opc.substring(4,6)+opc.substring(2,4)+line.substring(14);
+		    	}
 		    	
 		    	byte[] msu = HexFormat.str2bytes(line);
 		    	//MSU超长丢弃
-		    	if (msu.length > FileConvert.MSU_MAX_LENGTH){
+		    	if (line.charAt(0)=='8' && msu.length > FileConvert.MSU_MAX_LENGTH){
 		    		System.out.println(_count+"; file="+f+" start at " + new Date());
 		    		System.out.println("IGNORE MSU because too long ="+msu.length);
 		    		System.out.println("MSU start with "+HexFormat.bytes2str(msu, 0, 10, true));
@@ -451,7 +526,10 @@ public class SockServerSimulate {
 			    	streamToServer.write(msu);
 			        _count ++;
 			        
-			        readAndSleep(streamFromServer, _old );
+			        if (inteval>0 || _count%100==0){ //仅需延时或每发送100个msg后读一次
+			        	readAndSleep(streamFromServer, _old );
+			        	_old = System.currentTimeMillis();
+			        }
 			    } catch (SocketTimeoutException e) {
 			    	//ignore
 				}catch (Exception e) {
@@ -478,15 +556,16 @@ public class SockServerSimulate {
 	}
 	
 	private void  readAndSleep(InputStream streamFromServer, long _old ) {
+		
 		//read RECV, but ignore them
-    	byte[] rbuf = new byte[1024*8];
+    	byte[] rbuf = new byte[1024*1024];
         try {
 			streamFromServer.read(rbuf);  //超时读,可能影响性能
 		} catch (Exception e) {
 		}
 		        
         //deplay ms
-        if ( inteval - (System.currentTimeMillis() - _old) > 0  ){
+        if (inteval>0 && inteval - (System.currentTimeMillis() - _old) > 0  ){
         	try {
 				Thread.currentThread().sleep(inteval - (System.currentTimeMillis() - _old));
 			} catch (InterruptedException e) {
@@ -641,7 +720,9 @@ public class SockServerSimulate {
 		    	streamToServer.write(msu);
 		        _count ++;
 		        
-		        readAndSleep(streamFromServer, _old );
+		        if (inteval>0 || _count%100==0){ //仅需延时或每发送100个msg后读一次
+		        	readAndSleep(streamFromServer, _old );
+		        }
 		        
 		        if (_count%1000==0){
 		        	System.out.println(_count+"; file="+f+" is starting at " + new Date());
