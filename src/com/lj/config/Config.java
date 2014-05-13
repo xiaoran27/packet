@@ -37,8 +37,8 @@
 * V,xiaoran27,2006-3-15
 * + locate(String base, String name)
 * + locate(String name)
-* M loadPropertiesConfig(String fileName) ╣Всцlocate
-* * M loadXmlConfig(String fileName) ╣Всцlocate
+* M loadPropertiesConfig(String fileName) О©╫О©╫О©╫О©╫locate
+* * M loadXmlConfig(String fileName) О©╫О©╫О©╫О©╫locate
 *-----------------------------------------------------------------------------*
 * V,xiaoran27,2006-4-4
 * + class ConfigurationInfo
@@ -55,35 +55,38 @@
 * V,xiaoran27,2006-4-7
 * M locateLast(String ) invoke Log4jConfig.locateLast(String)
 * M reload() logger.warn(...)
-* M startWatch() фТ╤╞оъЁл
+* M startWatch() О©╫О©╫О©╫О©╫О©╫ъЁО©╫
 *-----------------------------------------------------------------------------*
 * V,xiaoran27,2006-8-1
-* M ConfigurationInfo: еДжцнд╪Ч╦дн╙Ёит╠. init()╠ьпКтзgetLastModified()жп╣Всц
+* M ConfigurationInfo: О©╫О©╫О©╫О©╫О©╫д╪О©╫О©╫О©╫н╙О©╫О©╫т╠. init()О©╫О©╫О©╫О©╫О©╫О©╫getLastModified()О©╫п╣О©╫О©╫О©╫
 *-----------------------------------------------------------------------------*
 * V,xiaoran27,2007-8-14
-* M еДжцнд╪Ч╥╒иЗ╦д╠Д╨С╣дм╗ж╙╡нйЩ╪╟оЮ╧ь
+* M О©╫О©╫О©╫О©╫О©╫д╪О©╫О©╫О©╫О©╫О©╫д╠О©╫О©╫О©╫м╗ж╙О©╫О©╫О©╫О©╫О©╫О©╫О©╫
 *-----------------------------------------------------------------------------*
 * V,xiaoran27,2007-8-14
-* M loadAndWatchConfig(String , int )  + //╪Л╡Ийг╥Яйгм╛р╩еДжц
+* M loadAndWatchConfig(String , int )  + //О©╫О©╫О©╫О©╫г╥О©╫О©╫О©╫м╛р╩О©╫О©╫О©╫О©╫
 *-----------------------------------------------------------------------------*
 * V,xiaoran27,2007-8-24
-* + еДжц╦д╠Д╣дЁёа©╠Йй╤
+* + О©╫О©╫О©╫ц╦д╠О©╫дЁО©╫О©╫О©╫О©╫О©╫й╤
 *-----------------------------------------------------------------------------*
 * V,xiaoran27,2007-11-5/6
 * + reload()й╠,synchronized (configuration)
-* + Config.CONFIG_IS_CHANGED_TIME //вН╨С╪стьеДжцй╠╪Д
+* + Config.CONFIG_IS_CHANGED_TIME //О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫й╠О©╫О©╫
 *-----------------------------------------------------------------------------*
 * V,xiaoran27,2008-4-22
 * + Configuration getConfig(String fileName)
 *-----------------------------------------------------------------------------*
 * V,xiaoran27,2009-11-3
-* иХ╤╗д╛хо╣днд╪Ч╠ЮбК╦Яй╫UTF-8
+* О©╫Х╤╗д╛О©╫о╣О©╫О©╫д╪О©╫О©╫О©╫О©╫О©╫О©╫й╫UTF-8
 *-----------------------------------------------------------------------------*
 * V,xiaoran27,2010-02-22
-* M reload() //еДжц╦д╠Д╠Йй╤синд╪ЧцШ╬Ж╤╗(╠ёЁж╪Фхщ)
+* M reload() //О©╫О©╫О©╫ц╦д╠О©╫О©╫й╤О©╫О©╫О©╫д╪О©╫О©╫О©╫О©╫О©╫О©╫(О©╫О©╫О©╫ж╪О©╫О©╫О©╫)
 *-----------------------------------------------------------------------------*
 * V,xiaoran27,2010-11-11
 * M //no yield
+*-----------------------------------------------------------------------------*
+* V,xiaoran27,2014-5-13
+* M //Е╞╧Е╨■fileГ └Configuration //skip 0
 \*************************** END OF CHANGE REPORT HISTORY ********************/
 
 package com.lj.config;
@@ -107,7 +110,7 @@ import org.apache.log4j.Logger;
 
 
 /**
- * ╪сть.properties,.xml╣деДжцнд╪Ч
+ * О©╫О©╫О©╫О©╫.properties,.xmlО©╫О©╫О©╫О©╫О©╫О©╫О©╫д╪О©╫
  *
  * @author $author$
  * @version $Revision: 1.12 $
@@ -121,35 +124,35 @@ public class Config {
   private static boolean usingCoding = true;
   public static String DEFAULT_ENCODING = "UTF-8";
 
-  /*еДжц╦д╠Д╣дЁёа©╠Йй╤*/
+  /*О©╫О©╫О©╫ц╦д╠О©╫дЁО©╫О©╫О©╫О©╫О©╫й╤*/
   public static String CONFIG_FILENAME = "_CONFIG_FILENAME";
   public static String CONFIG_IS_CHANGED = "_CONFIG_IS_CHANGED";
   public static String CONFIG_IS_CHANGED_COUNT = "_CONFIG_IS_CHANGED_COUNT";
 
-  /*вН╨С╪стьеДжцй╠╪Д*/
+  /*О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫й╠О©╫О©╫*/
   public static String CONFIG_IS_CHANGED_TIME = "_CONFIG_IS_CHANGED_TIME";
 
   /**
-   * ╢Ф╥екЫсп╪сть╣деДжц, <0,ConfigurationInfo>йгеДжц╦ЖйЩ(ConfigurationInfo.getInterval())
+   * О©╫О©╫О©╫О©╫О©╫О©╫п╪О©╫О©╫ь╣О©╫О©╫О©╫О©╫О©╫, <0,ConfigurationInfo>О©╫О©╫О©╫О©╫О©╫ц╦О©╫О©╫О©╫(ConfigurationInfo.getInterval())
    */
   private static Map<Integer, ConfigurationInfo> watchMap = new HashMap<Integer, ConfigurationInfo>();
 
   /**
-   * ╪ЮлЩеДжцоъЁл
+   * О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫ъЁО©╫
    */
   private static ConfigWatch configWatch = null;
 
   /**
-   * ╪ЮлЩоъЁлйг╥ЯуЩтзткпп
+   * О©╫О©╫О©╫О©╫О©╫ъЁО©╫О©╫г╥О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫
    */
   private static boolean isRunningWatch = false;
 
   static {
-    watchMap.put(0, new ConfigurationInfo(null, 0)); //еДжц╦ЖйЩ
+    watchMap.put(0, new ConfigurationInfo(null, 0)); //О©╫О©╫О©╫ц╦О©╫О©╫О©╫
   }
 
   /**
-   * фТ╤╞╪ЮлЩоъЁл
+   * О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫ъЁО©╫
    */
   static public void startWatch() {
 
@@ -170,7 +173,7 @@ public class Config {
   }
 
   /**
-   * мёж╧╪ЮлЩоъЁл
+   * мёж╧О©╫О©╫О©╫О©╫О©╫ъЁО©╫
    */
   static public void stopWatch() {
     configWatch.setRun(false);
@@ -283,20 +286,24 @@ public class Config {
   }
 
   /**
-   * ╩Ях║ж╦╤╗нд╪Ч╣д╪стьеДжц.
+   * О©╫О©╫х║ж╦О©╫О©╫О©╫д╪О©╫О©╫д╪О©╫О©╫О©╫О©╫О©╫О©╫О©╫.
    *
-   * @param fileName String нд╪ЧцШ.  кякВб╥╬╤: .jar, {user.dir}, conf, cfgоб╣деДжцнд╪Ч.
+   * @param fileName String О©╫д╪О©╫О©╫О©╫.  О©╫О©╫О©╫О©╫б╥О©╫О©╫: .jar, {user.dir}, conf, cfgО©╫б╣О©╫О©╫О©╫О©╫О©╫О©╫д╪О©╫.
    *
-   * @return Configuration еДжц╤тоСй╣юЩ. null - ц╩сп╪сть╧Щ
+   * @return Configuration О©╫О©╫О©╫ц╤О©╫О©╫О©╫й╣О©╫О©╫. null - ц╩О©╫п╪О©╫О©╫ь╧О©╫
    *
    * @throws Exception
    */
   static public Configuration getConfig(String fileName) {
 	  Configuration cfg = null;
 
-	    //╪Л╡Ийг╥Яйгм╛р╩еДжц
+	    //О©╫О©╫О©╫О©╫г╥О©╫О©╫О©╫м╛р╩О©╫О©╫О©╫О©╫
 	    for (Iterator<ConfigurationInfo> iter=watchMap.values().iterator(); iter.hasNext();) {
 	        ConfigurationInfo ci = iter.next();
+	        cfg = ci.getConfiguration();  //Е╞╧Е╨■fileГ └Configuration
+	        if (null==cfg){  //skip 0
+	            continue;
+	        }
 	        File file = ci.getFile();
 	        if (file != null && file.getName().indexOf(fileName)>=0){
 	        	break;
@@ -307,11 +314,11 @@ public class Config {
   }
 
   /**
-   * ╪стьеДжцнд╪Ч(.properties,.xml). кякВб╥╬╤: .jar, {user.dir}, conf, cfgоб╣деДжцнд╪Ч.
+   * О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫д╪О©╫(.properties,.xml). О©╫О©╫О©╫О©╫б╥О©╫О©╫: .jar, {user.dir}, conf, cfgО©╫б╣О©╫О©╫О©╫О©╫О©╫О©╫д╪О©╫.
    *
-   * @param fileName String нд╪ЧцШ
+   * @param fileName String О©╫д╪О©╫О©╫О©╫
    *
-   * @return Configuration еДжц╤тоСй╣юЩ
+   * @return Configuration О©╫О©╫О©╫ц╤О©╫О©╫О©╫й╣О©╫О©╫
    *
    * @throws Exception
    */
@@ -331,11 +338,11 @@ public class Config {
   }
 
   /**
-   * ╪стьеДжцнд╪Ч(.properties). кякВб╥╬╤: CLASSPATH, {user.dir}, conf, cfgоб╣деДжцнд╪Ч.
+   * О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫д╪О©╫(.properties). О©╫О©╫О©╫О©╫б╥О©╫О©╫: CLASSPATH, {user.dir}, conf, cfgО©╫б╣О©╫О©╫О©╫О©╫О©╫О©╫д╪О©╫.
    *
-   * @param fileName String нд╪ЧцШ
+   * @param fileName String О©╫д╪О©╫О©╫О©╫
    *
-   * @return Configuration еДжц╤тоСй╣юЩ
+   * @return Configuration О©╫О©╫О©╫ц╤О©╫О©╫О©╫й╣О©╫О©╫
    *
    * @throws Exception
    */
@@ -400,11 +407,11 @@ public class Config {
   }
 
   /**
-   * ╪стьеДжцнд╪Ч(.xml). кякВб╥╬╤: CLASSPATH, {user.dir}, conf, cfgоб╣деДжцнд╪Ч.
+   * О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫д╪О©╫(.xml). О©╫О©╫О©╫О©╫б╥О©╫О©╫: CLASSPATH, {user.dir}, conf, cfgО©╫б╣О©╫О©╫О©╫О©╫О©╫О©╫д╪О©╫.
    *
-   * @param fileName String нд╪ЧцШ
+   * @param fileName String О©╫д╪О©╫О©╫О©╫
    *
-   * @return Configuration еДжц╤тоСй╣юЩ
+   * @return Configuration О©╫О©╫О©╫ц╤О©╫О©╫О©╫й╣О©╫О©╫
    *
    * @throws Exception
    */
@@ -468,11 +475,11 @@ public class Config {
   }
 
   /**
-   * ╪стьвН╨Ср╩╦ЖеДжцнд╪Ч(.properties,.xml). кякВб╥╬╤: CLASSPATH, {user.dir}, conf, cfgоб╣деДжцнд╪Ч.
+   * О©╫О©╫О©╫О©╫О©╫О©╫О©╫р╩О©╫О©╫О©╫О©╫О©╫О©╫О©╫д╪О©╫(.properties,.xml). О©╫О©╫О©╫О©╫б╥О©╫О©╫: CLASSPATH, {user.dir}, conf, cfgО©╫б╣О©╫О©╫О©╫О©╫О©╫О©╫д╪О©╫.
    *
-   * @param fileName String нд╪ЧцШ
+   * @param fileName String О©╫д╪О©╫О©╫О©╫
    *
-   * @return Configuration еДжц╤тоСй╣юЩ
+   * @return Configuration О©╫О©╫О©╫ц╤О©╫О©╫О©╫й╣О©╫О©╫
    *
    * @throws Exception
    */
@@ -492,11 +499,11 @@ public class Config {
   }
 
   /**
-   * ╪стьвН╨Ср╩╦ЖеДжцнд╪Ч(.properties). кякВб╥╬╤: CLASSPATH, {user.dir}, conf, cfgоб╣деДжцнд╪Ч.
+   * О©╫О©╫О©╫О©╫О©╫О©╫О©╫р╩О©╫О©╫О©╫О©╫О©╫О©╫О©╫д╪О©╫(.properties). О©╫О©╫О©╫О©╫б╥О©╫О©╫: CLASSPATH, {user.dir}, conf, cfgО©╫б╣О©╫О©╫О©╫О©╫О©╫О©╫д╪О©╫.
    *
-   * @param fileName String нд╪ЧцШ
+   * @param fileName String О©╫д╪О©╫О©╫О©╫
    *
-   * @return Configuration еДжц╤тоСй╣юЩ
+   * @return Configuration О©╫О©╫О©╫ц╤О©╫О©╫О©╫й╣О©╫О©╫
    *
    * @throws Exception
    */
@@ -512,11 +519,11 @@ public class Config {
   }
 
   /**
-   * ╪стьвН╨Ср╩╦ЖеДжцнд╪Ч(.xml). кякВб╥╬╤: CLASSPATH, {user.dir}, conf, cfgоб╣деДжцнд╪Ч.
+   * О©╫О©╫О©╫О©╫О©╫О©╫О©╫р╩О©╫О©╫О©╫О©╫О©╫О©╫О©╫д╪О©╫(.xml). О©╫О©╫О©╫О©╫б╥О©╫О©╫: CLASSPATH, {user.dir}, conf, cfgО©╫б╣О©╫О©╫О©╫О©╫О©╫О©╫д╪О©╫.
    *
-   * @param fileName String нд╪ЧцШ
+   * @param fileName String О©╫д╪О©╫О©╫О©╫
    *
-   * @return Configuration еДжц╤тоСй╣юЩ
+   * @return Configuration О©╫О©╫О©╫ц╤О©╫О©╫О©╫й╣О©╫О©╫
    *
    * @throws Exception
    */
@@ -532,13 +539,13 @@ public class Config {
     return cfg;
   }
 
-  /** ╪стьвН╨Ср╩╦ЖеДжцнд╪Ч(.properties,.xml),╡╒╪ЮлЩнд╪Ч╫Ьпп╤╞л╛╪сть.
-   *  кякВб╥╬╤: .jar, {user.dir}, conf, cfgоб╣деДжцнд╪Ч.
+  /** О©╫О©╫О©╫О©╫О©╫О©╫О©╫р╩О©╫О©╫О©╫О©╫О©╫О©╫О©╫д╪О©╫(.properties,.xml),О©╫О©╫О©╫О©╫О©╫О©╫О©╫д╪О©╫О©╫О©╫О©╫п╤О©╫л╛О©╫О©╫О©╫О©╫.
+   *  О©╫О©╫О©╫О©╫б╥О©╫О©╫: .jar, {user.dir}, conf, cfgО©╫б╣О©╫О©╫О©╫О©╫О©╫О©╫д╪О©╫.
    *
-   * @param file еДжцнд╪Ч(.properties,.xml)
-   * @param tims spoolй╠╪Д(s)
+   * @param file О©╫О©╫О©╫О©╫О©╫д╪О©╫(.properties,.xml)
+   * @param tims spoolй╠О©╫О©╫(s)
    *
-   * @return Configuration еДжц╤тоСй╣юЩ
+   * @return Configuration О©╫О©╫О©╫ц╤О©╫О©╫О©╫й╣О©╫О©╫
    *
    * @throws Exception
    */
@@ -547,11 +554,11 @@ public class Config {
     Configuration config = loadLastConfig(file);
     ConfigurationInfo cfgInfo = watchMap.get(0);
 
-    //╪Л╡Ийг╥Яйгм╛р╩еДжц
+    //О©╫О©╫О©╫О©╫г╥О©╫О©╫О©╫м╛р╩О©╫О©╫О©╫О©╫
     for (Iterator<ConfigurationInfo> iter=watchMap.values().iterator(); iter.hasNext();) {
         ConfigurationInfo ci = iter.next();
         Configuration cfg = ci.getConfiguration();
-        if (null==cfg){  //╪фйЩсц
+        if (null==cfg){  //О©╫О©╫О©╫О©╫О©╫О©╫
             continue;
         }
 
@@ -575,12 +582,12 @@ public class Config {
     return config;
   }
 
-  /** ╪стьвН╨Ср╩╦ЖеДжцнд╪Ч(.properties,.xml),╡╒╪ЮлЩ(╪Д╦Т1s)нд╪Ч╫Ьпп╤╞л╛╪сть.
-    *  кякВб╥╬╤: .jar, {user.dir}, conf, cfgоб╣деДжцнд╪Ч.
+  /** О©╫О©╫О©╫О©╫О©╫О©╫О©╫р╩О©╫О©╫О©╫О©╫О©╫О©╫О©╫д╪О©╫(.properties,.xml),О©╫О©╫О©╫О©╫О©╫О©╫(О©╫О©╫О©╫1s)О©╫д╪О©╫О©╫О©╫О©╫п╤О©╫л╛О©╫О©╫О©╫О©╫.
+    *  О©╫О©╫О©╫О©╫б╥О©╫О©╫: .jar, {user.dir}, conf, cfgО©╫б╣О©╫О©╫О©╫О©╫О©╫О©╫д╪О©╫.
     *
-    * @param file еДжцнд╪Ч(.properties,.xml)
+    * @param file О©╫О©╫О©╫О©╫О©╫д╪О©╫(.properties,.xml)
     *
-    * @return Configuration еДжц╤тоСй╣юЩ
+    * @return Configuration О©╫О©╫О©╫ц╤О©╫О©╫О©╫й╣О©╫О©╫
     *
     * @throws Exception
     */
@@ -610,6 +617,9 @@ public class Config {
         System.out.println(test.getList("msgformat"));
 //        System.out.println(test2.getList("log4j.rootLogger"));
         System.out.println(test.getList("test"));
+        
+        test = Config.loadAndWatchConfig("msg.properties");
+        System.out.println(Config.getConfig("msg.properties"));
       }
 
       //Config.stopWatch();
@@ -708,7 +718,7 @@ class ConfigurationInfo {
   }
 
   /**
-   * жьпб╪стьеДжцнд╪Ч
+   * О©╫О©╫О©╫б╪О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫д╪О©╫
    */
   public void reload() {
     try {
@@ -726,15 +736,15 @@ class ConfigurationInfo {
               configuration.toString());
           }
 
-          //╧╘╤╞л╛╪стьhandleй╧сц
+          //О©╫О©╫О©╫О©╫л╛О©╫О©╫О©╫О©╫handleй╧О©╫О©╫
           configuration.setProperty(Config.CONFIG_IS_CHANGED, new Boolean(true));
           configuration.setProperty(Config.CONFIG_IS_CHANGED_COUNT, 0);
 
           this.lastLoadTime = getLastModified();
-          //еДжц╦д╠Д╪стьмЙЁий╠╪Д
+          //О©╫О©╫О©╫ц╦д╠О©╫О©╫О©╫О©╫О©╫О©╫О©╫й╠О©╫О©╫
           configuration.setProperty(Config.CONFIG_IS_CHANGED_TIME, lastLoadTime);
         
-          //еДжц╦д╠Д╠Йй╤синд╪ЧцШ╬Ж╤╗(╠ёЁж╪Фхщ)
+          //О©╫О©╫О©╫ц╦д╠О©╫О©╫й╤О©╫О©╫О©╫д╪О©╫О©╫О©╫О©╫О©╫О©╫(О©╫О©╫О©╫ж╪О©╫О©╫О©╫)
           configuration.setProperty(Config.CONFIG_FILENAME, file.getName());
           configuration.setProperty(file.getName()+Config.CONFIG_IS_CHANGED, new Boolean(true));
           configuration.setProperty(file.getName()+Config.CONFIG_IS_CHANGED_COUNT, 0);
@@ -749,7 +759,7 @@ class ConfigurationInfo {
   }
 
   /**
-   * еДжцнд╪ЧвН╨Ср╩╢нпч╦дй╠╪Д
+   * О©╫О©╫О©╫О©╫О©╫д╪О©╫О©╫О©╫О©╫р╩О©╫О©╫О©╫ч╦О©╫й╠О©╫О©╫
    */
   public long getLastModified() {
     if (null == file) {
@@ -764,7 +774,7 @@ class ConfigurationInfo {
   }
 
   /**
-   * еДжцнд╪Ч
+   * О©╫О©╫О©╫О©╫О©╫д╪О©╫
    */
   public File getFile() {
     if (null == file) {
@@ -809,17 +819,17 @@ class ConfigWatch implements Runnable {
   private static final Logger logger = Logger.getLogger(ConfigWatch.class);
 
   /**
-   * ╣╠г╟оъЁл
+   * О©╫О©╫г╟О©╫ъЁО©╫
    */
   private Thread thread = null;
 
   /**
-   * ╢Ф╥екЫсп╪сть╣деДжц, <0,ConfigurationInfo>йгеДжц╦ЖйЩ(ConfigurationInfo.getInterval())
+   * О©╫О©╫О©╫О©╫О©╫О©╫п╪О©╫О©╫ь╣О©╫О©╫О©╫О©╫О©╫, <0,ConfigurationInfo>О©╫О©╫О©╫О©╫О©╫ц╦О©╫О©╫О©╫(ConfigurationInfo.getInterval())
    */
   private Map<Integer, ConfigurationInfo> watchMap = null;
 
   /**
-   * ©ьжфоъЁлйг╥Яткпп
+   * О©╫О©╫О©╫О©╫О©╫ъЁО©╫О©╫г╥О©╫О©╫О©╫О©╫О©╫
    */
   private volatile boolean run = true;
 
@@ -855,12 +865,12 @@ class ConfigWatch implements Runnable {
     return thread;
   }
 
-  /** ╤╞л╛╪Л╡БConfiguration
+  /** О©╫О©╫л╛О©╫О©╫О©╫Configuration
    *
    * @see java.lang.Runnable#run()
    */
   public void run() {
-    //йДЁЖоъЁл©╙й╪пео╒
+    //О©╫О©╫О©╫О©╫ъЁл©О©╫й╪О©╫О©╫о╒
     StringBuilder sbTmp = new StringBuilder();
     sbTmp.append(this.getClass().getSimpleName()).append(" is running at ")
          .append(new Date());
@@ -877,8 +887,8 @@ class ConfigWatch implements Runnable {
       } catch (InterruptedException e) {
       }
 
-      /*╤╞л╛╪стьеДжц*/
-      int count = watchMap.get(0).getInterval(); //еДжц╦ЖйЩ
+      /*О©╫О©╫л╛О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫*/
+      int count = watchMap.get(0).getInterval(); //О©╫О©╫О©╫ц╦О©╫О©╫О©╫
 
       for (int i = 1; i <= count; i++) {
         ConfigurationInfo configInfo = watchMap.get(i);
@@ -895,9 +905,9 @@ class ConfigWatch implements Runnable {
   }
 
   /**
-   * ф╢п╢╪Р╩╞╣двж╥Ш╢╝,ЁёвВн╙оъЁл╣дх╚цШ
+   * ф╢п╢О©╫Р╩╞╣О©╫О©╫ж╥О©╫,О©╫О©╫О©╫О©╫н╙О©╫ъЁл╣О©╫х╚О©╫О©╫
    *
-   * @return ╪Р╩╞╣двж╥Ш╢╝,ЁёвВн╙оъЁл╣дх╚цШ
+   * @return О©╫Р╩╞╣О©╫О©╫ж╥О©╫,О©╫О©╫О©╫О©╫н╙О©╫ъЁл╣О©╫х╚О©╫О©╫
    */
   public String toSimpleString() {
     return this.getClass().getSimpleName();
