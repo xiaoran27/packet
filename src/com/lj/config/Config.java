@@ -87,6 +87,9 @@
 *-----------------------------------------------------------------------------*
 * V,xiaoran27,2014-5-13
 * M //对应file的Configuration //skip 0
+*-----------------------------------------------------------------------------*
+* V,xiaoran27,2014-5-19
+* M //replace OLD
 \*************************** END OF CHANGE REPORT HISTORY ********************/
 
 package com.lj.config;
@@ -569,6 +572,8 @@ public class Config {
             isExists = ((XMLConfiguration)cfg).getURL().getFile().equals(((XMLConfiguration)config).getURL().getFile());
         }
         if (isExists){
+        	ci.setConfiguration(config);  //replace OLD
+        	cfg = config;
             return cfg;
         }
     }
