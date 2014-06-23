@@ -50,6 +50,7 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Arrays;
 
 
 /**
@@ -183,7 +184,7 @@ public class Proxool {
     try {
       Proxool.init();
 
-      String[] alias = new String[] { "sybase", "hsqldb" };
+      String[] alias = new String[] { "DB", "MDB" };
 
       if ((null != args) && (args.length > 0)) {
         alias = args;
@@ -198,6 +199,8 @@ public class Proxool {
             try {
 
                 conn = getConnection(db);
+                System.out.println(Arrays.toString(conn.getClass().getFields()));
+                System.out.println(Arrays.toString(conn.getClass().getDeclaredMethods()));
 
                 st = conn.createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE ,ResultSet.CONCUR_READ_ONLY );  //rs要next(),否则不能rs.close()
                 st.setMaxRows(1);
