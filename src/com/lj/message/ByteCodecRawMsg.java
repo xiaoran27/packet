@@ -1,31 +1,5 @@
-/*************************** COPYRIGHT INFORMATION ***************************\
-*                                                                             *
-*       INFOMATION INCLUDED IN THIS DOCUMENT IS THE EXCLUSIVE PROPERTY OF     *
-*       LIANGJIANG COMMUNICATIONS SOFTWARE INC. COPYING, USE OR DISCLOSURE    *
-*       OF ITS CONTENTS, EVEN IN PART, ARE NOT PERMITTED WITHOUT THE PRIOR    *
-*       WRITTEN AGREEMENT OF THE PROPRIETOR.                                  *
-*                                                                             *
-*               Copyright (C) 2002-2006 Liangjiang Software Inc.              *
-*                                                                             *
-************************** END OF COPYRIGHT INFORMATION ***********************
 
-************************* SOURCE FILE INFORMATION *****************************
-**
-*LAST UPDATED:: $Id: ByteCodecRawMsg.java,v 1.7 2008/01/04 05:42:03 xiaoran27 Exp $
-**
-*PRINCIPAL AUTHOR:: Liangjiang Incorporation                                  *
-**
-*PRUCT NAME      :: PleaseFillProductName
-**
-*LANGUAGE        :: ASNI                                                      *
-**
-*TARGET ENVIRONMENT:: JRE 1.5+                                                *
-**
-*DESCRIPTION     :: PleaseFill
-**
-*************************** END OF SOURCE FILE INFORMATION ********************
-
-************************* CHANGE REPORT HISTORY *******************************
+/************************ CHANGE REPORT HISTORY ******************************\
 ** Product VERSION,UPDATED BY,UPDATE DATE                                     *
 *   DESCRIPTION OF CHANGE                                                     *
 *-----------------------------------------------------------------------------*
@@ -56,6 +30,10 @@
 *----------------------------------------------------------------------------*
 * V,xiaoran27,2008-1-3
 * 废除static方法(@Deprecated),防止多线程出现问题
+*----------------------------------------------------------------------------*
+* V,xiaoran27,2015-1-6
+* //注释此行:丢弃不能正确解码的完整包
+* //invoke decodeMessagePacket(...)
 \*************************** END OF CHANGE REPORT HISTORY ********************/
 package com.lj.message;
 
@@ -113,6 +91,11 @@ public final class ByteCodecRawMsg {
    */
   public byte[] decodeMessagePacket(byte[] rcvBuf,
     BlockingQueue<byte[]> recievePacket) {
+	  
+	if (true){
+		return this.decodeMessagePacket(rcvBuf, recievePacket, null, null);  //invoke decodeMessagePacket(...)
+	}
+	  
     byte[] remainb = new byte[rcvBuf.length];
     System.arraycopy(rcvBuf, 0, remainb, 0, remainb.length);
 
@@ -139,7 +122,7 @@ public final class ByteCodecRawMsg {
         logger.warn(
           "decodeMessagePacket(String , byte[] , BlockingQueue<byte[]> , boolean ) - discard: " +
           HexUtil.byteToHex(msgb, msgb.length));
-        break; //没有完整的包,退出
+//        break; //没有完整的包,退出  //注释此行:丢弃不能正确解码的完整包
       }
 
       byte[] remainb2 = new byte[remainb.length - end];
@@ -192,7 +175,9 @@ public final class ByteCodecRawMsg {
         try {
           byte[] packet = iMessage.decodeMessagePacket(msgb); //完整的包(已解码)
           recievePacket.put(packet);
-          packetDataArrivedKeyQueue.put(scKey);  //通知处理线程
+          if (packetDataArrivedKeyQueue != null && scKey != null){
+        	  packetDataArrivedKeyQueue.put(scKey);  //通知处理线程
+          }
           count ++;
 
         } catch (Exception e) {
@@ -204,7 +189,7 @@ public final class ByteCodecRawMsg {
         logger.warn(
           "decodeMessagePacket(String , byte[] , BlockingQueue<byte[]> , boolean, BlockingQueue<String>, String ) - discard: " +
           HexUtil.byteToHex(msgb, msgb.length));
-        break; //没有完整的包,退出
+//        break; //没有完整的包,退出 //注释此行:丢弃不能正确解码的完整包
       }
 
       byte[] remainb2 = new byte[remainb.length - end];
